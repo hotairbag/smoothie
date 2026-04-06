@@ -125,7 +125,7 @@
   <!-- ======= PERSISTENT: Title + logo (fade in once, stay) ======= -->
   <g class="persist-title">
     <!-- Smoothie cup icon -->
-    <g transform="translate(524, 24)" fill="none" stroke="#f0f6fc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(480, 24)" fill="none" stroke="#f0f6fc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <!-- Cup body (trapezoid) -->
       <path d="M 4 14 L 7 34 L 25 34 L 28 14"/>
       <!-- Lid -->
@@ -139,7 +139,7 @@
       <path d="M 9 14 C 9 17 12 17 12 14" opacity="0.5"/>
       <path d="M 18 14 C 18 17 21 17 21 14" opacity="0.5"/>
     </g>
-    <text x="600" y="55" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="40" font-weight="700" fill="#f0f6fc" letter-spacing="-0.5">Smoothie</text>
+    <text x="620" y="55" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="40" font-weight="700" fill="#f0f6fc" letter-spacing="-0.5">Smoothie</text>
   </g>
   <text class="persist-sub" x="600" y="85" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" fill="#7d8590" letter-spacing="0.5">multi-model review for Claude Code</text>
 
