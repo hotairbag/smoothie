@@ -28,7 +28,7 @@ const PROJECT_ROOT = join(__dirname, '..');
 
 interface Config {
   openrouter_models: Array<{ id: string; label: string }>;
-  auto_blend_plans?: boolean;
+  auto_blend?: boolean;
 }
 
 interface ModelResult {

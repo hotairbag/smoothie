@@ -17,7 +17,7 @@ case "$1" in
         node -e "
           const fs = require('fs');
           const c = JSON.parse(fs.readFileSync('$CONFIG','utf8'));
-          c.auto_blend_plans = true;
+          c.auto_blend = true;
           fs.writeFileSync('$CONFIG', JSON.stringify(c, null, 2));
         "
         echo "  ✓ Auto-blend enabled"
@@ -26,7 +26,7 @@ case "$1" in
         node -e "
           const fs = require('fs');
           const c = JSON.parse(fs.readFileSync('$CONFIG','utf8'));
-          c.auto_blend_plans = false;
+          c.auto_blend = false;
           fs.writeFileSync('$CONFIG', JSON.stringify(c, null, 2));
         "
         echo "  ✓ Auto-blend disabled"
@@ -35,7 +35,7 @@ case "$1" in
         ENABLED=$(node -e "
           try {
             const c = JSON.parse(require('fs').readFileSync('$CONFIG','utf8'));
-            console.log(c.auto_blend_plans ? 'on' : 'off');
+            console.log(c.auto_blend ? 'on' : 'off');
           } catch(e) { console.log('off'); }
         ")
         echo "  Auto-blend is $ENABLED"

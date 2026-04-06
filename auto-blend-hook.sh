@@ -16,7 +16,7 @@ if [ -f "$SCRIPT_DIR/config.json" ]; then
   AUTO_ENABLED=$(node -e "
     try {
       const c = JSON.parse(require('fs').readFileSync('$SCRIPT_DIR/config.json','utf8'));
-      console.log(c.auto_blend_plans === true ? 'true' : 'false');
+      console.log(c.auto_blend === true ? 'true' : 'false');
     } catch(e) { console.log('false'); }
   " 2>/dev/null)
 

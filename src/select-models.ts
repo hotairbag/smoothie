@@ -21,7 +21,7 @@ interface ModelEntry {
 
 interface Config {
   openrouter_models: ModelEntry[];
-  auto_blend_plans?: boolean;
+  auto_blend?: boolean;
 }
 
 const FALLBACK_MODELS: ModelEntry[] = [
@@ -235,7 +235,7 @@ async function cmdPick(apiKey: string, configPath: string): Promise<void> {
     }
   }
 
-  // Preserve existing config fields (like auto_blend_plans)
+  // Preserve existing config fields (like auto_blend)
   const existing = loadConfig(configPath);
   existing.openrouter_models = finalSelection;
   saveConfig(configPath, existing);

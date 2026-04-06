@@ -122,7 +122,7 @@ node "$SCRIPT_DIR/dist/select-models.js" "$OPENROUTER_KEY" "$SCRIPT_DIR/config.j
 # ─── Step 5: Auto-blend ──────────────────────────────────────────────
 step "Configuring hooks"
 
-chmod +x "$SCRIPT_DIR/plan-hook.sh" "$SCRIPT_DIR/auto-blend-hook.sh"
+chmod +x "$SCRIPT_DIR/plan-hook.sh" "$SCRIPT_DIR/auto-blend-hook.sh" "$SCRIPT_DIR/pr-blend-hook.sh"
 
 echo ""
 echo -e "  ${B}Auto-blend${N} reviews every plan with all models before"
@@ -133,7 +133,7 @@ if [[ "$AUTO_BLEND" =~ ^[Yy]$ ]]; then
   node -e "
     const fs = require('fs');
     const c = JSON.parse(fs.readFileSync('$SCRIPT_DIR/config.json','utf8'));
-    c.auto_blend_plans = true;
+    c.auto_blend = true;
     fs.writeFileSync('$SCRIPT_DIR/config.json', JSON.stringify(c, null, 2));
   "
   echo -e "  ${G}✓${N} Auto-blend on"
@@ -184,6 +184,27 @@ Use your full codebase context to filter out irrelevant suggestions. Be decisive
 EOF
 echo -e "  ${G}✓${N} Slash command /smoothie"
 
+cat > "$CLAUDE_DIR/commands/smoothie-pr.md" << 'EOF'
+You are running Smoothie PR Review — a multi-model code review.
+
+$ARGUMENTS
+
+**Step 1 — Get the diff**
+Run `git diff main...HEAD` to get the full branch diff.
+
+**Step 2 — Blend**
+Call `smoothie_blend` with a prompt asking models to review the diff for:
+- Bugs, logic errors, edge cases
+- Security vulnerabilities
+- Performance issues
+- Code style / best practices
+
+**Step 3 — Respond**
+Summarize the review. List concrete issues found (if any) with file:line references.
+If everything looks good, say so briefly. Be direct.
+EOF
+echo -e "  ${G}✓${N} Slash command /smoothie-pr"
+
 # Merge settings.json
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
 EXISTING="{}"
@@ -211,6 +232,19 @@ if (!preExists) {
     hooks: [{
       type: "command",
       command: "bash $SCRIPT_DIR/auto-blend-hook.sh",
+      timeout: 120
+    }]
+  });
+}
+
+// Add PR review hook for Bash commands
+const bashHookExists = s.hooks.PreToolUse.some(h => h.matcher === 'Bash' && h.hooks?.[0]?.command?.includes('pr-blend-hook'));
+if (!bashHookExists) {
+  s.hooks.PreToolUse.push({
+    matcher: "Bash",
+    hooks: [{
+      type: "command",
+      command: "bash $SCRIPT_DIR/pr-blend-hook.sh",
       timeout: 120
     }]
   });

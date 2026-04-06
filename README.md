@@ -32,7 +32,7 @@ When enabled, every plan is automatically reviewed by all models before you see 
 
 Enable during install, or toggle anytime in `config.json`:
 ```json
-{ "auto_blend_plans": true }
+{ "auto_blend": true }
 ```
 
 Adds 30-90s to plan approval while models respond.
@@ -78,5 +78,5 @@ Claude acts as judge. Raw model outputs are never shown. Claude absorbs everythi
 | `auto-blend-hook.sh` | PreToolUse hook — auto-blends plans |
 | `plan-hook.sh` | Stop hook — plan mode hint (fallback) |
 | `install.sh` | One-command installer |
-| `config.json` | Model selection + auto_blend_plans flag |
+| `config.json` | Model selection + auto_blend flag |
 | `.env` | API keys (gitignored) |
