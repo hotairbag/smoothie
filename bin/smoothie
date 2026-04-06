@@ -1,5 +1,6 @@
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONFIG="$SCRIPT_DIR/config.json"
 
 case "$1" in
   models)
@@ -10,24 +11,52 @@ case "$1" in
     shift
     node "$SCRIPT_DIR/dist/blend-cli.js" "$@"
     ;;
+  auto)
+    case "$2" in
+      on)
+        node -e "
+          const fs = require('fs');
+          const c = JSON.parse(fs.readFileSync('$CONFIG','utf8'));
+          c.auto_blend_plans = true;
+          fs.writeFileSync('$CONFIG', JSON.stringify(c, null, 2));
+        "
+        echo "  ✓ Auto-blend enabled"
+        ;;
+      off)
+        node -e "
+          const fs = require('fs');
+          const c = JSON.parse(fs.readFileSync('$CONFIG','utf8'));
+          c.auto_blend_plans = false;
+          fs.writeFileSync('$CONFIG', JSON.stringify(c, null, 2));
+        "
+        echo "  ✓ Auto-blend disabled"
+        ;;
+      *)
+        ENABLED=$(node -e "
+          try {
+            const c = JSON.parse(require('fs').readFileSync('$CONFIG','utf8'));
+            console.log(c.auto_blend_plans ? 'on' : 'off');
+          } catch(e) { console.log('off'); }
+        ")
+        echo "  Auto-blend is $ENABLED"
+        echo "  Usage: smoothie auto on|off"
+        ;;
+    esac
+    ;;
   help|--help|-h|"")
     echo ""
     echo "  🧃 Smoothie — multi-model review for Claude Code"
     echo ""
-    echo "  Usage: smoothie <command>"
+    echo "  smoothie models              Pick models interactively"
+    echo "  smoothie models list         Show current models"
+    echo "  smoothie models add <id>     Add by OpenRouter model ID"
+    echo "  smoothie models remove <id>  Remove a model"
     echo ""
-    echo "  Models"
-    echo "    models                  Pick models interactively"
-    echo "    models list             Show current models"
-    echo "    models add <id>         Add by OpenRouter model ID"
-    echo "    models remove <id>      Remove a model"
+    echo "  smoothie auto                Show auto-blend status"
+    echo "  smoothie auto on             Enable auto-blend for plans"
+    echo "  smoothie auto off            Disable auto-blend"
     echo ""
-    echo "  Blend"
-    echo "    blend \"<prompt>\"        Run a blend from terminal"
-    echo ""
-    echo "  In Claude Code"
-    echo "    /smoothie <problem>     Manual blend via slash command"
-    echo "    auto-blend              Runs automatically on plans (if enabled)"
+    echo "  smoothie blend \"<prompt>\"    Run a blend from terminal"
     echo ""
     ;;
   *)
