@@ -28,7 +28,7 @@ When Claude presents a plan, you'll see a prompt to type `smoothie` in option 5 
 
 ### Refresh models
 ```bash
-node select-models.js
+node dist/select-models.js
 ```
 Fetches current top models from OpenRouter and lets you repick. No restart needed.
 

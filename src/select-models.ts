@@ -3,19 +3,35 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { createInterface } from 'readline';
+import { createInterface, Interface } from 'readline';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = join(__dirname, '..');
 
-const FALLBACK_MODELS = [
+interface OpenRouterModel {
+  id: string;
+  name?: string;
+  context_length?: number;
+}
+
+interface ModelEntry {
+  id: string;
+  label: string;
+}
+
+interface Config {
+  openrouter_models: ModelEntry[];
+}
+
+const FALLBACK_MODELS: ModelEntry[] = [
   { id: "google/gemini-2.5-pro-preview", label: "Gemini 2.5 Pro Preview" },
   { id: "x-ai/grok-3", label: "Grok 3" },
   { id: "deepseek/deepseek-r2", label: "DeepSeek R2" }
 ];
 
-function loadEnv() {
+function loadEnv(): void {
   try {
-    const env = readFileSync(join(__dirname, '.env'), 'utf8');
+    const env = readFileSync(join(PROJECT_ROOT, '.env'), 'utf8');
     for (const line of env.split('\n')) {
       const [key, ...val] = line.split('=');
       if (key && val.length) process.env[key.trim()] = val.join('=').trim();
@@ -23,38 +39,39 @@ function loadEnv() {
   } catch {}
 }
 
-function formatLabel(model) {
+function formatLabel(model: OpenRouterModel): string {
   if (model.name) return model.name;
   // Strip provider prefix and title-case
   const raw = model.id.includes('/') ? model.id.split('/').slice(1).join('/') : model.id;
   return raw
     .replace(/-/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-async function fetchModels(apiKey) {
+async function fetchModels(apiKey: string): Promise<OpenRouterModel[] | null> {
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models?order=throughput', {
       headers: { 'Authorization': `Bearer ${apiKey}` }
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    const json = await res.json();
+    const json = (await res.json()) as { data?: OpenRouterModel[] };
     return json.data || [];
   } catch (err) {
-    console.warn(`\n  Warning: Could not fetch models from OpenRouter (${err.message})`);
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`\n  Warning: Could not fetch models from OpenRouter (${message})`);
     console.warn('  Using fallback defaults.\n');
     return null;
   }
 }
 
-function dedupeAndFilter(models) {
+function dedupeAndFilter(models: OpenRouterModel[]): OpenRouterModel[] {
   // Filter to context_length >= 32000
-  const filtered = models.filter(m => (m.context_length || 0) >= 32000);
+  const filtered = models.filter((m) => (m.context_length || 0) >= 32000);
 
   // Deduplicate by provider family (first slash prefix).
   // Results are already ordered by throughput, so first encountered = highest throughput.
-  const seen = new Set();
-  const deduped = [];
+  const seen = new Set<string>();
+  const deduped: OpenRouterModel[] = [];
   for (const m of filtered) {
     const provider = m.id.includes('/') ? m.id.split('/')[0] : m.id;
     if (seen.has(provider)) continue;
@@ -65,11 +82,11 @@ function dedupeAndFilter(models) {
   return deduped.slice(0, 15);
 }
 
-function printModelList(models) {
+function printModelList(models: ModelEntry[]): void {
   console.log('\n  Top models by usage right now:\n');
 
   // Calculate column widths for alignment
-  const maxIdLen = Math.max(...models.map(m => m.id.length));
+  const maxIdLen = Math.max(...models.map((m) => m.id.length));
 
   models.forEach((m, i) => {
     const num = String(i + 1).padStart(2, ' ');
@@ -81,15 +98,15 @@ function printModelList(models) {
   console.log('');
 }
 
-function prompt(rl, question) {
-  return new Promise(resolve => {
-    rl.question(question, answer => resolve(answer));
+function prompt(rl: Interface, question: string): Promise<string> {
+  return new Promise((resolve) => {
+    rl.question(question, (answer: string) => resolve(answer));
   });
 }
 
-async function main() {
+async function main(): Promise<void> {
   const apiKey = process.argv[2] || (loadEnv(), process.env.OPENROUTER_API_KEY);
-  const configPath = process.argv[3] || join(__dirname, 'config.json');
+  const configPath = process.argv[3] || join(PROJECT_ROOT, 'config.json');
 
   if (!apiKey) {
     console.error('  Error: No API key provided.');
@@ -98,19 +115,19 @@ async function main() {
     process.exit(1);
   }
 
-  let topModels;
+  let topModels: ModelEntry[];
   const rawModels = await fetchModels(apiKey);
 
   if (rawModels === null) {
-    // API failed — use fallbacks directly
-    topModels = FALLBACK_MODELS.map(m => ({ ...m }));
+    // API failed -- use fallbacks directly
+    topModels = FALLBACK_MODELS.map((m) => ({ ...m }));
   } else {
     const deduped = dedupeAndFilter(rawModels);
     if (deduped.length === 0) {
       console.warn('  Warning: No suitable models found. Using fallback defaults.\n');
-      topModels = FALLBACK_MODELS.map(m => ({ ...m }));
+      topModels = FALLBACK_MODELS.map((m) => ({ ...m }));
     } else {
-      topModels = deduped.map(m => ({
+      topModels = deduped.map((m) => ({
         id: m.id,
         label: formatLabel(m)
       }));
@@ -129,19 +146,19 @@ async function main() {
   rl.close();
 
   const input = answer.trim() || defaultPicks;
-  const indices = input.split(/\s+/).map(Number).filter(n => n >= 1 && n <= topModels.length);
+  const indices = input.split(/\s+/).map(Number).filter((n) => n >= 1 && n <= topModels.length);
 
   if (indices.length === 0) {
     console.error('\n  No valid selections. Aborting.');
     process.exit(1);
   }
 
-  const selected = indices.map(i => ({
+  const selected: ModelEntry[] = indices.map((i) => ({
     id: topModels[i - 1].id,
     label: topModels[i - 1].label
   }));
 
-  const config = { openrouter_models: selected };
+  const config: Config = { openrouter_models: selected };
 
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf8');
 

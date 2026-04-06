@@ -5,21 +5,61 @@ import { execFile as execFileCb } from 'child_process';
 import { promisify } from 'util';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { z } from 'zod';
 
 const execFile = promisify(execFileCb);
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = join(__dirname, '..');
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface OpenRouterModel {
+  id: string;
+  label: string;
+}
+
+interface Config {
+  openrouter_models: OpenRouterModel[];
+}
+
+interface ModelResult {
+  model: string;
+  response: string;
+}
+
+interface ModelEntry {
+  fn: () => Promise<ModelResult>;
+  label: string;
+}
+
+interface OpenRouterMessage {
+  role: string;
+  content: string;
+}
+
+interface OpenRouterChoice {
+  message: OpenRouterMessage;
+}
+
+interface OpenRouterResponse {
+  choices?: OpenRouterChoice[];
+}
 
 // ---------------------------------------------------------------------------
 // .env loader (no dotenv dependency)
 // ---------------------------------------------------------------------------
-function loadEnv() {
+function loadEnv(): void {
   try {
-    const env = readFileSync(join(__dirname, '.env'), 'utf8');
+    const env = readFileSync(join(PROJECT_ROOT, '.env'), 'utf8');
     for (const line of env.split('\n')) {
       const [key, ...val] = line.split('=');
       if (key && val.length) process.env[key.trim()] = val.join('=').trim();
     }
-  } catch {}
+  } catch {
+    // .env file not found or unreadable — that's fine
+  }
 }
 loadEnv();
 
@@ -27,18 +67,23 @@ loadEnv();
 // Model query helpers
 // ---------------------------------------------------------------------------
 
-async function queryCodex(prompt) {
+async function queryCodex(prompt: string): Promise<ModelResult> {
   try {
     const { stdout } = await execFile('codex', ['--full-auto', '-q', prompt], {
       timeout: 90_000,
     });
     return { model: 'Codex', response: stdout };
-  } catch (err) {
-    return { model: 'Codex', response: `Error: ${err.message}` };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { model: 'Codex', response: `Error: ${message}` };
   }
 }
 
-async function queryOpenRouter(prompt, modelId, modelLabel) {
+async function queryOpenRouter(
+  prompt: string,
+  modelId: string,
+  modelLabel: string,
+): Promise<ModelResult> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 60_000);
@@ -60,11 +105,12 @@ async function queryOpenRouter(prompt, modelId, modelLabel) {
 
     clearTimeout(timer);
 
-    const data = await res.json();
+    const data = (await res.json()) as OpenRouterResponse;
     const text = data.choices?.[0]?.message?.content ?? 'No response content';
     return { model: modelLabel, response: text };
-  } catch (err) {
-    return { model: modelLabel, response: `Error: ${err.message}` };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { model: modelLabel, response: `Error: ${message}` };
   }
 }
 
@@ -76,23 +122,27 @@ const server = new McpServer({ name: 'smoothie', version: '1.0.0' });
 
 server.tool(
   'smoothie_blend',
-  { prompt: { type: 'string', description: 'The prompt to send to all models' } },
+  { prompt: z.string().describe('The prompt to send to all models') },
   async ({ prompt }) => {
     // Read config on every request so edits take effect immediately
-    let config;
+    let config: Config;
     try {
-      config = JSON.parse(readFileSync(join(__dirname, 'config.json'), 'utf8'));
+      config = JSON.parse(
+        readFileSync(join(PROJECT_ROOT, 'config.json'), 'utf8'),
+      ) as Config;
     } catch {
       config = { openrouter_models: [] };
     }
 
     // Build model array
-    const models = [
+    const models: ModelEntry[] = [
       { fn: () => queryCodex(prompt), label: 'Codex' },
-      ...config.openrouter_models.map(m => ({
-        fn: () => queryOpenRouter(prompt, m.id, m.label),
-        label: m.label,
-      })),
+      ...config.openrouter_models.map(
+        (m: OpenRouterModel): ModelEntry => ({
+          fn: () => queryOpenRouter(prompt, m.id, m.label),
+          label: m.label,
+        }),
+      ),
     ];
 
     // Print initial progress
@@ -103,27 +153,32 @@ server.tool(
     process.stderr.write('\n');
 
     // Run all in parallel with progress tracking
-    const startTimes = {};
+    const startTimes: Record<string, number> = {};
     const promises = models.map(({ fn, label }) => {
       startTimes[label] = Date.now();
       return fn()
-        .then(result => {
+        .then((result: ModelResult) => {
           const elapsed = ((Date.now() - startTimes[label]) / 1000).toFixed(1);
-          process.stderr.write(`  \u2713  ${label.padEnd(26)} done (${elapsed}s)\n`);
+          process.stderr.write(
+            `  \u2713  ${label.padEnd(26)} done (${elapsed}s)\n`,
+          );
           return result;
         })
-        .catch(err => {
+        .catch((err: unknown) => {
           const elapsed = ((Date.now() - startTimes[label]) / 1000).toFixed(1);
-          process.stderr.write(`  \u2717  ${label.padEnd(26)} failed (${elapsed}s)\n`);
-          return { model: label, response: `Error: ${err.message}` };
+          const message = err instanceof Error ? err.message : String(err);
+          process.stderr.write(
+            `  \u2717  ${label.padEnd(26)} failed (${elapsed}s)\n`,
+          );
+          return { model: label, response: `Error: ${message}` } as ModelResult;
         });
     });
 
-    const results = await Promise.all(promises);
+    const results: ModelResult[] = await Promise.all(promises);
     process.stderr.write('\n  \u25C6  All done. Handing to Claude...\n\n');
 
     return {
-      content: [{ type: 'text', text: JSON.stringify({ results }, null, 2) }],
+      content: [{ type: 'text' as const, text: JSON.stringify({ results }, null, 2) }],
     };
   },
 );

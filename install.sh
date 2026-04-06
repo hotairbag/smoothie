@@ -25,6 +25,7 @@ echo -e "${GREEN}✓ Node.js $(node --version)${NC}"
 echo "  Installing dependencies..."
 cd "$SCRIPT_DIR"
 npm install --silent
+npm run build
 echo -e "${GREEN}✓ Dependencies installed${NC}"
 
 # 3. Codex CLI
@@ -60,7 +61,7 @@ fi
 
 # 6. Pick models (live from OpenRouter)
 echo ""
-node "$SCRIPT_DIR/select-models.js" "$OPENROUTER_KEY" "$SCRIPT_DIR/config.json"
+node "$SCRIPT_DIR/dist/select-models.js" "$OPENROUTER_KEY" "$SCRIPT_DIR/config.json"
 echo -e "${GREEN}✓ Models saved to config.json${NC}"
 
 # 7. Hook executable
@@ -121,7 +122,7 @@ try { s = JSON.parse(\`$EXISTING\`); } catch(e) { s = {}; }
 s.mcpServers = s.mcpServers || {};
 s.mcpServers.smoothie = {
   command: "node",
-  args: ["$SCRIPT_DIR/index.js"],
+  args: ["$SCRIPT_DIR/dist/index.js"],
   env: { OPENROUTER_API_KEY: "$OPENROUTER_KEY" }
 };
 
@@ -152,6 +153,6 @@ echo "  Restart Claude Code, then:"
 echo "  /smoothie <your problem>"
 echo ""
 echo "  In plan mode: type 'smoothie' in option 5"
-echo "  Refresh models anytime: node smoothie-mcp/select-models.js"
+echo "  Refresh models anytime: node smoothie/dist/select-models.js"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
