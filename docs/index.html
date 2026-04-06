@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smoothie — Multi-model review for Claude Code</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <meta name="description" content="Query multiple AI models in parallel, get one blended answer. Plugin for Claude Code, Codex CLI, and Gemini CLI.">
+  <meta property="og:title" content="Smoothie">
+  <meta property="og:description" content="Multi-model review for Claude Code, Codex CLI, and Gemini CLI">
+  <meta property="og:image" content="https://hotairbag.github.io/smoothie/banner.svg">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0d1117;
+      color: #f0f6fc;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+      padding: 0 24px;
+    }
+
+    /* Banner */
+    .banner {
+      width: 100%;
+      margin: 48px 0 0;
+    }
+    .banner img {
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      border: 1px solid #21262d;
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      margin: 48px 0;
+    }
+    .hero h1 {
+      font-size: 20px;
+      font-weight: 400;
+      color: #8b949e;
+      line-height: 1.6;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* Install */
+    .install {
+      margin: 0 0 48px;
+      text-align: center;
+    }
+    .install-box {
+      display: inline-block;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 16px 32px;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 15px;
+      color: #f0f6fc;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      position: relative;
+    }
+    .install-box:hover {
+      border-color: #f78166;
+    }
+    .install-box .kw { color: #f78166; }
+    .install-box .copy-hint {
+      position: absolute;
+      top: -28px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: #8b949e;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .install-box:hover .copy-hint { opacity: 1; }
+    .install-box.copied .copy-hint { opacity: 1; color: #3fb950; }
+
+    /* Features */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 0 0 64px;
+    }
+    @media (max-width: 640px) {
+      .features { grid-template-columns: 1fr; }
+    }
+    .feature {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 10px;
+      padding: 24px;
+    }
+    .feature h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #f0f6fc;
+    }
+    .feature p {
+      font-size: 13px;
+      color: #8b949e;
+      line-height: 1.5;
+    }
+    .feature .accent { color: #f78166; }
+    .feature .green { color: #3fb950; }
+
+    /* Usage */
+    .usage {
+      margin: 0 0 64px;
+    }
+    .usage h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #f0f6fc;
+    }
+    .usage-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 640px) {
+      .usage-grid { grid-template-columns: 1fr; }
+    }
+    .usage-item {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+    .usage-item code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      color: #f78166;
+    }
+    .usage-item .desc {
+      font-size: 12px;
+      color: #8b949e;
+      margin-top: 4px;
+    }
+
+    /* Footer */
+    footer {
+      padding: 32px 0;
+      text-align: center;
+      color: #484f58;
+      font-size: 13px;
+    }
+    footer a {
+      color: #8b949e;
+      text-decoration: none;
+    }
+    footer a:hover { color: #f0f6fc; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="banner">
+      <img src="banner.svg" alt="Smoothie — multi-model review for Claude Code">
+    </div>
+
+    <div class="hero">
+      <h1>Query multiple AI models in parallel. Get one blended answer. Works with Claude Code, Codex CLI, and Gemini CLI.</h1>
+    </div>
+
+    <div class="install">
+      <div class="install-box" onclick="copyInstall(this)">
+        <span class="copy-hint">click to copy</span>
+        <span class="kw">git clone</span> https://github.com/hotairbag/smoothie && <span class="kw">cd</span> smoothie && <span class="kw">bash</span> install.sh
+      </div>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <h3><span class="accent">/smoothie</span></h3>
+        <p>Slash command sends your problem to all models. Claude judges the responses and gives you one clean answer.</p>
+      </div>
+      <div class="feature">
+        <h3><span class="green">Auto-blend</span></h3>
+        <p>Every plan automatically reviewed by multiple models before you approve. Zero effort, better plans.</p>
+      </div>
+      <div class="feature">
+        <h3>--deep</h3>
+        <p>Full context mode. Sends project files, git diff, and context docs to all reviewers. Shows cost estimate first.</p>
+      </div>
+    </div>
+
+    <div class="usage">
+      <h2>Usage</h2>
+      <div class="usage-grid">
+        <div class="usage-item">
+          <code>/smoothie why is auth broken</code>
+          <div class="desc">Manual blend in Claude Code</div>
+        </div>
+        <div class="usage-item">
+          <code>/smoothie-pr</code>
+          <div class="desc">Multi-model PR review</div>
+        </div>
+        <div class="usage-item">
+          <code>smoothie models</code>
+          <div class="desc">Pick or manage models</div>
+        </div>
+        <div class="usage-item">
+          <code>smoothie auto on</code>
+          <div class="desc">Enable auto-blend for plans</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <a href="https://github.com/hotairbag/smoothie">GitHub</a>
+  </footer>
+
+  <script>
+    function copyInstall(el) {
+      const text = 'git clone https://github.com/hotairbag/smoothie && cd smoothie && bash install.sh';
+      navigator.clipboard.writeText(text);
+      el.classList.add('copied');
+      el.querySelector('.copy-hint').textContent = 'copied!';
+      setTimeout(() => {
+        el.classList.remove('copied');
+        el.querySelector('.copy-hint').textContent = 'click to copy';
+      }, 2000);
+    }
+  </script>
+</body>
+</html>

@@ -93,7 +93,7 @@ async function queryOpenRouter(
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'https://github.com/hotairbag/smoothie',
+        'HTTP-Referer': 'https://hotairbag.github.io/smoothie',
         'X-Title': 'Smoothie',
         'Content-Type': 'application/json',
       },
