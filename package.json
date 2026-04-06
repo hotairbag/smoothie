@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "smoothie": "./bin/smoothie"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js"

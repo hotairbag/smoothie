@@ -39,10 +39,10 @@ Adds 30-90s to plan approval while models respond.
 
 ### Manage models
 ```bash
-node dist/select-models.js              # re-pick from top models
-node dist/select-models.js add openai/gpt-5.4   # add by ID
-node dist/select-models.js remove openai/gpt-5.4
-node dist/select-models.js list         # show current models
+smoothie models              # re-pick from top models
+smoothie models add openai/gpt-5.4
+smoothie models remove openai/gpt-5.4
+smoothie models list
 ```
 No restart needed — config is read fresh on each blend.
 

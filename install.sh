@@ -62,6 +62,9 @@ spin $! "npm install"
 npm run build 2>&1 >/dev/null &
 spin $! "Compiling TypeScript"
 
+npm link --silent 2>/dev/null &
+spin $! "Linking smoothie CLI"
+
 # ─── Step 2: Codex CLI ───────────────────────────────────────────────
 step "Setting up Codex"
 
@@ -226,10 +229,11 @@ echo -e "  ${D}━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo -e "  ${G}${B}Done!${N} Restart Claude Code, then:"
 echo ""
-echo -e "  ${C}/smoothie${N} ${D}<your problem>${N}    manual blend"
+echo -e "  ${C}/smoothie${N} ${D}<your problem>${N}    blend in Claude Code"
 if [[ "$AUTO_BLEND" =~ ^[Yy]$ ]]; then
-echo -e "  ${C}auto-blend${N}                  ${G}enabled${N} for all plans"
+echo -e "  ${C}auto-blend${N}                  ${G}on${N} for all plans"
 fi
+echo -e "  ${C}smoothie models${N}             manage models"
 echo ""
-echo -e "  ${D}Models: $MODELS${N}"
+echo -e "  ${D}$MODELS${N}"
 echo ""
