@@ -1,94 +1,138 @@
 #!/bin/bash
 set -e
 
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+# Colors
+G='\033[0;32m'    # green
+Y='\033[1;33m'    # yellow
+R='\033[0;31m'    # red
+C='\033[0;36m'    # cyan
+D='\033[0;90m'    # dim
+B='\033[1m'       # bold
+N='\033[0m'       # reset
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOTAL_STEPS=6
+STEP=0
 
-echo ""
-echo -e "${CYAN}🧃 Smoothie installer${NC}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
+step() {
+  STEP=$((STEP + 1))
+  echo ""
+  echo -e "  ${D}[$STEP/$TOTAL_STEPS]${N} ${B}$1${N}"
+}
 
-# 1. Check Node
+spin() {
+  local pid=$1 msg=$2
+  local frames=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+  local i=0
+  while kill -0 "$pid" 2>/dev/null; do
+    printf "\r  ${D}${frames[$i]} $msg${N}  "
+    i=$(( (i + 1) % ${#frames[@]} ))
+    sleep 0.1
+  done
+  wait "$pid" 2>/dev/null
+  printf "\r  ${G}✓${N} $msg                    \n"
+}
+
+clear
+echo ""
+echo -e "  ${C}${B}"
+echo '   ____                   _   _     _'
+echo '  / ___| _ __ ___   ___  ___ | |_| |__ (_) ___'
+echo '  \___ \| `_ ` _ \ / _ \ / _ \| __| `_ \| |/ _ \'
+echo '   ___) | | | | | | (_) | (_) | |_| | | | |  __/'
+echo '  |____/|_| |_| |_|\___/ \___/ \__|_| |_|_|\___|'
+echo -e "${N}"
+echo -e "  ${D}multi-model review for Claude Code${N}"
+echo ""
+echo -e "  ${D}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"
+
+# ─── Step 1: Dependencies ────────────────────────────────────────────
+step "Installing dependencies"
+
 if ! command -v node &>/dev/null; then
-  echo -e "${RED}✗ Node.js not found. Install from https://nodejs.org${NC}"
+  echo -e "  ${R}✗ Node.js not found. Install from https://nodejs.org${N}"
   exit 1
 fi
-echo -e "${GREEN}✓ Node.js $(node --version)${NC}"
+echo -e "  ${G}✓${N} Node $(node --version)"
 
-# 2. Dependencies
-echo "  Installing dependencies..."
 cd "$SCRIPT_DIR"
-npm install --silent
-npm run build
-echo -e "${GREEN}✓ Dependencies installed${NC}"
+npm install --silent 2>/dev/null &
+spin $! "npm install"
 
-# 3. Codex CLI
+npm run build 2>&1 >/dev/null &
+spin $! "Compiling TypeScript"
+
+# ─── Step 2: Codex CLI ───────────────────────────────────────────────
+step "Setting up Codex"
+
 if ! command -v codex &>/dev/null; then
-  echo -e "${YELLOW}  Installing Codex CLI...${NC}"
-  npm install -g @openai/codex
-  echo -e "${GREEN}✓ Codex CLI installed${NC}"
+  npm install -g @openai/codex 2>/dev/null &
+  spin $! "Installing Codex CLI"
 else
-  echo -e "${GREEN}✓ Codex CLI found${NC}"
+  echo -e "  ${G}✓${N} Codex CLI found"
 fi
 
-# 4. Codex auth
-echo ""
-echo "  Codex authenticates via your ChatGPT account (browser OAuth)."
-read -p "  Press Enter to log in → " _
-codex auth login
-echo -e "${GREEN}✓ Codex authenticated${NC}"
+# Check if already authenticated
+if codex auth status 2>/dev/null | grep -q "Logged in"; then
+  echo -e "  ${G}✓${N} Already authenticated"
+else
+  echo ""
+  echo -e "  ${D}Opens your browser → sign in with your ChatGPT account${N}"
+  read -p "  Press Enter to authenticate → " _
+  codex auth login 2>&1 | grep -v "^$" | head -3
+  echo -e "  ${G}✓${N} Codex authenticated"
+fi
 
-# 5. OpenRouter key
+# ─── Step 3: OpenRouter ──────────────────────────────────────────────
+step "Connecting OpenRouter"
+
 echo ""
-echo "  OpenRouter = one API key for Gemini, Grok, DeepSeek + 200 more."
-echo "  Sign up free: https://openrouter.ai/keys"
+echo -e "  ${D}One API key for Gemini, Grok, DeepSeek + 200 more${N}"
+echo -e "  ${D}Get yours free →${N} ${C}https://openrouter.ai/keys${N}"
 echo ""
-read -p "  Paste your OpenRouter API key: " OPENROUTER_KEY
+read -s -p "  API key (hidden): " OPENROUTER_KEY
+echo ""
 
 if [ -z "$OPENROUTER_KEY" ]; then
-  echo -e "${YELLOW}  Skipped. Add later: echo 'OPENROUTER_API_KEY=...' > smoothie-mcp/.env${NC}"
+  echo -e "  ${Y}Skipped${N} ${D}— add later to .env${N}"
   echo "OPENROUTER_API_KEY=" > "$SCRIPT_DIR/.env"
 else
   echo "OPENROUTER_API_KEY=$OPENROUTER_KEY" > "$SCRIPT_DIR/.env"
-  echo -e "${GREEN}✓ Key saved to .env${NC}"
+  echo -e "  ${G}✓${N} Key saved"
 fi
 
-# 6. Pick models (live from OpenRouter)
+# ─── Step 4: Pick models ─────────────────────────────────────────────
+step "Choosing models"
+
 echo ""
 node "$SCRIPT_DIR/dist/select-models.js" "$OPENROUTER_KEY" "$SCRIPT_DIR/config.json"
-echo -e "${GREEN}✓ Models saved to config.json${NC}"
 
-# 7. Hook executables
-chmod +x "$SCRIPT_DIR/plan-hook.sh"
-chmod +x "$SCRIPT_DIR/auto-blend-hook.sh"
-echo -e "${GREEN}✓ Hooks ready${NC}"
+# ─── Step 5: Auto-blend ──────────────────────────────────────────────
+step "Configuring hooks"
 
-# 7b. Auto-blend option
+chmod +x "$SCRIPT_DIR/plan-hook.sh" "$SCRIPT_DIR/auto-blend-hook.sh"
+
 echo ""
-echo "  Auto-blend reviews every plan automatically before you approve."
-echo "  Adds 30-90s to each plan approval (while models respond)."
+echo -e "  ${B}Auto-blend${N} reviews every plan with all models before"
+echo -e "  you approve. Adds 30-90s per plan."
 echo ""
-read -p "  Enable auto-blend for plans? [y/N]: " AUTO_BLEND
+read -p "  Enable auto-blend? [y/N]: " AUTO_BLEND
 if [[ "$AUTO_BLEND" =~ ^[Yy]$ ]]; then
-  # Add auto_blend_plans to config.json
   node -e "
     const fs = require('fs');
     const c = JSON.parse(fs.readFileSync('$SCRIPT_DIR/config.json','utf8'));
     c.auto_blend_plans = true;
     fs.writeFileSync('$SCRIPT_DIR/config.json', JSON.stringify(c, null, 2));
   "
-  echo -e "${GREEN}✓ Auto-blend enabled${NC}"
+  echo -e "  ${G}✓${N} Auto-blend on"
 else
-  echo -e "${YELLOW}  Skipped. Enable later: set auto_blend_plans: true in config.json${NC}"
+  echo -e "  ${D}Skipped — toggle in config.json anytime${N}"
 fi
 
-# 8. Find .claude dir
+# ─── Step 6: Wire up Claude Code ─────────────────────────────────────
+step "Wiring up Claude Code"
+
+# Find .claude dir
 CLAUDE_DIR=""
 SEARCH_DIR="$PWD"
 while [ "$SEARCH_DIR" != "/" ]; do
@@ -102,9 +146,8 @@ if [ -z "$CLAUDE_DIR" ]; then
   CLAUDE_DIR="$HOME/.claude"
   mkdir -p "$CLAUDE_DIR"
 fi
-echo -e "${GREEN}✓ Claude config: $CLAUDE_DIR${NC}"
 
-# 9. Write slash command
+# Slash command
 mkdir -p "$CLAUDE_DIR/commands"
 cat > "$CLAUDE_DIR/commands/smoothie.md" << 'EOF'
 You are running Smoothie — a multi-model review session.
@@ -127,9 +170,9 @@ Do NOT show the user raw model outputs.
 
 Use your full codebase context to filter out irrelevant suggestions. Be decisive.
 EOF
-echo -e "${GREEN}✓ Slash command written${NC}"
+echo -e "  ${G}✓${N} Slash command /smoothie"
 
-# 10. Merge settings.json
+# Merge settings.json
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
 EXISTING="{}"
 [ -f "$SETTINGS_FILE" ] && EXISTING=$(cat "$SETTINGS_FILE")
@@ -148,7 +191,6 @@ s.mcpServers.smoothie = {
 
 s.hooks = s.hooks || {};
 
-// PreToolUse hook: auto-blend on ExitPlanMode
 s.hooks.PreToolUse = s.hooks.PreToolUse || [];
 const preExists = s.hooks.PreToolUse.some(h => h.matcher === 'ExitPlanMode');
 if (!preExists) {
@@ -162,7 +204,6 @@ if (!preExists) {
   });
 }
 
-// Stop hook: plan mode hint (fallback for manual usage)
 s.hooks.Stop = s.hooks.Stop || [];
 const stopExists = s.hooks.Stop.some(h => h.hooks?.[0]?.command?.includes('plan-hook.sh'));
 if (!stopExists) {
@@ -171,25 +212,24 @@ if (!stopExists) {
 
 fs.writeFileSync('$SETTINGS_FILE', JSON.stringify(s, null, 2));
 NODEJS
-echo -e "${GREEN}✓ settings.json updated${NC}"
+echo -e "  ${G}✓${N} MCP server registered"
+echo -e "  ${G}✓${N} Hooks configured"
 
-# 11. Done
+# ─── Done ─────────────────────────────────────────────────────────────
 MODELS=$(node -e "
 const d = JSON.parse(require('fs').readFileSync('$SCRIPT_DIR/config.json','utf8'));
 console.log(['Codex', ...d.openrouter_models.map(m=>m.label)].join(' · '));
 ")
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${CYAN}🧃 Smoothie is ready!${NC}"
+echo -e "  ${D}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"
 echo ""
-echo "  Blending: $MODELS"
+echo -e "  ${G}${B}Done!${N} Restart Claude Code, then:"
 echo ""
-echo "  Restart Claude Code, then:"
-echo "  /smoothie <your problem>"
+echo -e "  ${C}/smoothie${N} ${D}<your problem>${N}    manual blend"
+if [[ "$AUTO_BLEND" =~ ^[Yy]$ ]]; then
+echo -e "  ${C}auto-blend${N}                  ${G}enabled${N} for all plans"
+fi
 echo ""
-echo "  Auto-blend: plans are auto-reviewed if enabled"
-echo "  Manual:     /smoothie <question> anytime"
-echo "  Models:     node smoothie/dist/select-models.js"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "  ${D}Models: $MODELS${N}"
 echo ""
