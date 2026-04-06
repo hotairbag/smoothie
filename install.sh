@@ -77,9 +77,9 @@ if codex auth status 2>/dev/null | grep -q "Logged in"; then
   echo -e "  ${G}✓${N} Already authenticated"
 else
   echo ""
-  echo -e "  ${D}Opens your browser → sign in with your ChatGPT account${N}"
-  read -p "  Press Enter to authenticate → " _
-  codex auth login 2>&1 | grep -v "^$" | head -3
+  echo -e "  ${D}Opening browser for ChatGPT sign-in...${N}"
+  read -p "  Press Enter when ready → " _
+  codex auth login >/dev/null 2>&1
   echo -e "  ${G}✓${N} Codex authenticated"
 fi
 

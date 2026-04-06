@@ -79,20 +79,17 @@ function dedupeAndFilter(models: OpenRouterModel[]): OpenRouterModel[] {
     deduped.push(m);
   }
 
-  return deduped.slice(0, 15);
+  return deduped.slice(0, 8);
 }
 
 function printModelList(models: ModelEntry[]): void {
-  console.log('\n  Top models by usage right now:\n');
+  console.log('');
 
-  // Calculate column widths for alignment
-  const maxIdLen = Math.max(...models.map((m) => m.id.length));
+  const maxLabelLen = Math.max(...models.map((m) => m.label.length));
 
   models.forEach((m, i) => {
     const num = String(i + 1).padStart(2, ' ');
-    const id = m.id.padEnd(maxIdLen + 2, ' ');
-    const label = m.label;
-    console.log(`  ${num}.  ${id}${label}`);
+    console.log(`  ${num}.  ${m.label}`);
   });
 
   console.log('');
@@ -142,7 +139,7 @@ async function main(): Promise<void> {
   });
 
   const defaultPicks = '1 2 3';
-  const answer = await prompt(rl, `  Enter numbers to add (space-separated), or press Enter for defaults [${defaultPicks}]: `);
+  const answer = await prompt(rl, `  Pick models (space-separated) [${defaultPicks}]: `);
   rl.close();
 
   const input = answer.trim() || defaultPicks;
@@ -162,11 +159,7 @@ async function main(): Promise<void> {
 
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf8');
 
-  console.log(`\n  Saved ${selected.length} model(s) to ${configPath}:`);
-  for (const m of selected) {
-    console.log(`    - ${m.id}  (${m.label})`);
-  }
-  console.log('');
+  console.log(`  ✓ ${selected.map(m => m.label).join(', ')}`);
 }
 
 main();
