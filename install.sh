@@ -65,25 +65,34 @@ spin $! "Compiling TypeScript"
 npm link --silent 2>/dev/null &
 spin $! "Linking smoothie CLI"
 
-# ─── Step 2: Codex CLI ───────────────────────────────────────────────
-step "Setting up Codex"
+# ─── Step 2: Codex CLI (optional) ────────────────────────────────────
+step "Setting up Codex ${D}(optional)${N}"
 
-if ! command -v codex &>/dev/null; then
-  npm install -g @openai/codex 2>/dev/null &
-  spin $! "Installing Codex CLI"
-else
-  echo -e "  ${G}✓${N} Codex CLI found"
-fi
+echo ""
+echo -e "  ${D}Codex adds OpenAI's coding model to the blend.${N}"
+echo -e "  ${D}Requires a ChatGPT account. Skip if you only want OpenRouter.${N}"
+echo ""
+read -p "  Set up Codex? [Y/n]: " SETUP_CODEX
 
-# Check if already authenticated
-if codex auth status 2>/dev/null | grep -q "Logged in"; then
-  echo -e "  ${G}✓${N} Already authenticated"
+if [[ "$SETUP_CODEX" =~ ^[Nn]$ ]]; then
+  echo -e "  ${D}Skipped — blend will use OpenRouter models only${N}"
 else
-  echo ""
-  echo -e "  ${D}Opening browser for ChatGPT sign-in...${N}"
-  read -p "  Press Enter when ready → " _
-  codex auth login >/dev/null 2>&1
-  echo -e "  ${G}✓${N} Codex authenticated"
+  if ! command -v codex &>/dev/null; then
+    npm install -g @openai/codex 2>/dev/null &
+    spin $! "Installing Codex CLI"
+  else
+    echo -e "  ${G}✓${N} Codex CLI found"
+  fi
+
+  if codex auth status 2>/dev/null | grep -q "Logged in"; then
+    echo -e "  ${G}✓${N} Already authenticated"
+  else
+    echo ""
+    echo -e "  ${D}Opens browser → sign in with ChatGPT account${N}"
+    read -p "  Press Enter when ready → " _
+    codex auth login >/dev/null 2>&1
+    echo -e "  ${G}✓${N} Codex authenticated"
+  fi
 fi
 
 # ─── Step 3: OpenRouter ──────────────────────────────────────────────

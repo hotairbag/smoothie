@@ -10,13 +10,28 @@ case "$1" in
     shift
     node "$SCRIPT_DIR/dist/blend-cli.js" "$@"
     ;;
-  *)
-    echo "Usage: smoothie <command>"
+  help|--help|-h|"")
     echo ""
-    echo "  models              Pick models interactively"
-    echo "  models list         Show current models"
-    echo "  models add <id>     Add a model by OpenRouter ID"
-    echo "  models remove <id>  Remove a model"
-    echo "  blend <prompt>      Run a blend from terminal"
+    echo "  🧃 Smoothie — multi-model review for Claude Code"
+    echo ""
+    echo "  Usage: smoothie <command>"
+    echo ""
+    echo "  Models"
+    echo "    models                  Pick models interactively"
+    echo "    models list             Show current models"
+    echo "    models add <id>         Add by OpenRouter model ID"
+    echo "    models remove <id>      Remove a model"
+    echo ""
+    echo "  Blend"
+    echo "    blend \"<prompt>\"        Run a blend from terminal"
+    echo ""
+    echo "  In Claude Code"
+    echo "    /smoothie <problem>     Manual blend via slash command"
+    echo "    auto-blend              Runs automatically on plans (if enabled)"
+    echo ""
+    ;;
+  *)
+    echo "  Unknown command: $1"
+    echo "  Run 'smoothie help' for usage"
     ;;
 esac
