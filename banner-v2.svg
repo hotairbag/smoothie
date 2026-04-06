@@ -122,8 +122,25 @@
   <line x1="100" y1="105" x2="1100" y2="105" stroke="#21262d" stroke-width="0.5"/>
   <line x1="100" y1="418" x2="1100" y2="418" stroke="#21262d" stroke-width="0.5"/>
 
-  <!-- ======= PERSISTENT: Title (fade in once, stay) ======= -->
-  <text class="persist-title" x="600" y="55" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="40" font-weight="700" fill="#f0f6fc" letter-spacing="-0.5">smoothie</text>
+  <!-- ======= PERSISTENT: Title + logo (fade in once, stay) ======= -->
+  <g class="persist-title">
+    <!-- Smoothie cup icon -->
+    <g transform="translate(524, 24)" fill="none" stroke="#f0f6fc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Cup body (trapezoid) -->
+      <path d="M 4 14 L 7 34 L 25 34 L 28 14"/>
+      <!-- Lid -->
+      <path d="M 1 11 L 31 11 C 31 11 31 14 16 14 C 1 14 1 11 1 11"/>
+      <!-- Dome top -->
+      <path d="M 5 11 C 5 5 11 1 16 1 C 21 1 27 5 27 11"/>
+      <!-- Straw -->
+      <line x1="20" y1="1" x2="27" y2="-8"/>
+      <line x1="27" y1="-8" x2="30" y2="-8"/>
+      <!-- Drip details -->
+      <path d="M 9 14 C 9 17 12 17 12 14" opacity="0.5"/>
+      <path d="M 18 14 C 18 17 21 17 21 14" opacity="0.5"/>
+    </g>
+    <text x="600" y="55" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="40" font-weight="700" fill="#f0f6fc" letter-spacing="-0.5">Smoothie</text>
+  </g>
   <text class="persist-sub" x="600" y="85" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" fill="#7d8590" letter-spacing="0.5">multi-model review for Claude Code</text>
 
   <!-- ======= PERSISTENT: Terminal box (fade in once, stay) ======= -->
