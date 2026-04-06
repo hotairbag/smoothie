@@ -101,7 +101,7 @@ async function queryOpenRouter(
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'https://github.com/smoothie-mcp',
+        'HTTP-Referer': 'https://github.com/hotairbag/smoothie',
         'X-Title': 'Smoothie',
         'Content-Type': 'application/json',
       },
