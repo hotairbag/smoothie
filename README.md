@@ -37,11 +37,14 @@ Enable during install, or toggle anytime in `config.json`:
 
 Adds 30-90s to plan approval while models respond.
 
-### Refresh models
+### Manage models
 ```bash
-node dist/select-models.js
+node dist/select-models.js              # re-pick from top models
+node dist/select-models.js add openai/gpt-5.4   # add by ID
+node dist/select-models.js remove openai/gpt-5.4
+node dist/select-models.js list         # show current models
 ```
-Fetches current top models from OpenRouter and lets you repick. No restart needed.
+No restart needed — config is read fresh on each blend.
 
 ## How it works
 
