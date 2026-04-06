@@ -1,17 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <rect width="64" height="64" rx="14" fill="#0d1117"/>
-  <g transform="translate(12, 8)" stroke="#f0f6fc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
-    <!-- Cup body -->
-    <path d="M 6 22 L 10 48 L 30 48 L 34 22"/>
-    <!-- Lid -->
-    <path d="M 2 18 L 38 18 C 38 18 38 22 20 22 C 2 22 2 18 2 18"/>
+  <g transform="translate(12, 10)" stroke="#f0f6fc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Straw (inside viewBox now) -->
+    <line x1="24" y1="8" x2="32" y2="2"/>
+    <line x1="32" y1="2" x2="36" y2="2"/>
     <!-- Dome -->
-    <path d="M 8 18 C 8 10 14 4 20 4 C 26 4 32 10 32 18"/>
-    <!-- Straw -->
-    <line x1="24" y1="4" x2="34" y2="-6" stroke-width="2.5"/>
-    <line x1="34" y1="-6" x2="38" y2="-6" stroke-width="2.5"/>
+    <path d="M 8 20 C 8 12 14 6 20 6 C 26 6 32 12 32 20"/>
+    <!-- Lid -->
+    <path d="M 2 20 L 38 20 C 38 20 38 24 20 24 C 2 24 2 20 2 20"/>
+    <!-- Cup body -->
+    <path d="M 6 24 L 10 46 L 30 46 L 34 24"/>
     <!-- Drips -->
-    <path d="M 13 22 C 13 26 17 26 17 22" opacity="0.5" stroke-width="2"/>
-    <path d="M 23 22 C 23 26 27 26 27 22" opacity="0.5" stroke-width="2"/>
+    <path d="M 13 24 C 13 28 17 28 17 24" opacity="0.4" stroke-width="1.8"/>
+    <path d="M 23 24 C 23 28 27 28 27 24" opacity="0.4" stroke-width="1.8"/>
   </g>
 </svg>
