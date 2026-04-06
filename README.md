@@ -27,8 +27,15 @@ Restart Claude Code after install.
 /smoothie <your problem or question>
 ```
 
-### Plan mode
-When Claude presents a plan, you'll see a prompt to type `smoothie` in option 5 to blend the plan before approving.
+### Auto-blend (plans)
+When enabled, every plan is automatically reviewed by all models before you see it. Claude revises the plan with their feedback, then presents the improved version for approval. Zero effort.
+
+Enable during install, or toggle anytime in `config.json`:
+```json
+{ "auto_blend_plans": true }
+```
+
+Adds 30-90s to plan approval while models respond.
 
 ### Refresh models
 ```bash
@@ -41,13 +48,19 @@ Fetches current top models from OpenRouter and lets you repick. No restart neede
 ```
 Claude Code
     |
-    |-- /smoothie <context>           <- slash command
-    |-- Stop Hook                     <- detects plan mode
+    |-- /smoothie <context>           <- manual slash command
+    |-- PreToolUse hook               <- auto-blend on ExitPlanMode
     \-- MCP Server
             \-- smoothie_blend(prompt)
                     |-- Queries all models in parallel
                     |-- Streams live progress to terminal
                     \-- Returns all responses to Claude
+```
+
+**Auto-blend flow:**
+```
+Claude presents plan → ExitPlanMode hook fires → Smoothie blend runs
+→ Results injected as context → Claude revises plan → You approve
 ```
 
 Claude acts as judge. Raw model outputs are never shown. Claude absorbs everything and hands you one result.
@@ -57,8 +70,10 @@ Claude acts as judge. Raw model outputs are never shown. Claude absorbs everythi
 | File | Purpose |
 |---|---|
 | `src/index.ts` | MCP server exposing `smoothie_blend` tool |
+| `src/blend-cli.ts` | Standalone blend runner (used by hooks) |
 | `src/select-models.ts` | Interactive model picker (OpenRouter API) |
+| `auto-blend-hook.sh` | PreToolUse hook — auto-blends plans |
+| `plan-hook.sh` | Stop hook — plan mode hint (fallback) |
 | `install.sh` | One-command installer |
-| `plan-hook.sh` | Stop hook for plan mode detection |
-| `config.json` | Model selection (written by installer) |
+| `config.json` | Model selection + auto_blend_plans flag |
 | `.env` | API keys (gitignored) |

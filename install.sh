@@ -64,9 +64,29 @@ echo ""
 node "$SCRIPT_DIR/dist/select-models.js" "$OPENROUTER_KEY" "$SCRIPT_DIR/config.json"
 echo -e "${GREEN}✓ Models saved to config.json${NC}"
 
-# 7. Hook executable
+# 7. Hook executables
 chmod +x "$SCRIPT_DIR/plan-hook.sh"
-echo -e "${GREEN}✓ Hook ready${NC}"
+chmod +x "$SCRIPT_DIR/auto-blend-hook.sh"
+echo -e "${GREEN}✓ Hooks ready${NC}"
+
+# 7b. Auto-blend option
+echo ""
+echo "  Auto-blend reviews every plan automatically before you approve."
+echo "  Adds 30-90s to each plan approval (while models respond)."
+echo ""
+read -p "  Enable auto-blend for plans? [y/N]: " AUTO_BLEND
+if [[ "$AUTO_BLEND" =~ ^[Yy]$ ]]; then
+  # Add auto_blend_plans to config.json
+  node -e "
+    const fs = require('fs');
+    const c = JSON.parse(fs.readFileSync('$SCRIPT_DIR/config.json','utf8'));
+    c.auto_blend_plans = true;
+    fs.writeFileSync('$SCRIPT_DIR/config.json', JSON.stringify(c, null, 2));
+  "
+  echo -e "${GREEN}✓ Auto-blend enabled${NC}"
+else
+  echo -e "${YELLOW}  Skipped. Enable later: set auto_blend_plans: true in config.json${NC}"
+fi
 
 # 8. Find .claude dir
 CLAUDE_DIR=""
@@ -127,9 +147,25 @@ s.mcpServers.smoothie = {
 };
 
 s.hooks = s.hooks || {};
+
+// PreToolUse hook: auto-blend on ExitPlanMode
+s.hooks.PreToolUse = s.hooks.PreToolUse || [];
+const preExists = s.hooks.PreToolUse.some(h => h.matcher === 'ExitPlanMode');
+if (!preExists) {
+  s.hooks.PreToolUse.push({
+    matcher: "ExitPlanMode",
+    hooks: [{
+      type: "command",
+      command: "bash $SCRIPT_DIR/auto-blend-hook.sh",
+      timeout: 120
+    }]
+  });
+}
+
+// Stop hook: plan mode hint (fallback for manual usage)
 s.hooks.Stop = s.hooks.Stop || [];
-const exists = s.hooks.Stop.some(h => h.hooks?.[0]?.command?.includes('plan-hook.sh'));
-if (!exists) {
+const stopExists = s.hooks.Stop.some(h => h.hooks?.[0]?.command?.includes('plan-hook.sh'));
+if (!stopExists) {
   s.hooks.Stop.push({ hooks: [{ type: "command", command: "bash $SCRIPT_DIR/plan-hook.sh" }] });
 }
 
@@ -152,7 +188,8 @@ echo ""
 echo "  Restart Claude Code, then:"
 echo "  /smoothie <your problem>"
 echo ""
-echo "  In plan mode: type 'smoothie' in option 5"
-echo "  Refresh models anytime: node smoothie/dist/select-models.js"
+echo "  Auto-blend: plans are auto-reviewed if enabled"
+echo "  Manual:     /smoothie <question> anytime"
+echo "  Models:     node smoothie/dist/select-models.js"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""

@@ -1,0 +1,181 @@
+#!/usr/bin/env node
+
+/**
+ * blend-cli.ts — Standalone blend runner for hooks.
+ *
+ * Usage:
+ *   node dist/blend-cli.js "Review this plan: ..."
+ *   echo "plan text" | node dist/blend-cli.js
+ *
+ * Queries Codex + OpenRouter models in parallel, prints JSON results to stdout.
+ * Progress goes to stderr so it doesn't interfere with hook JSON output.
+ */
+
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { execFile as execFileCb } from 'child_process';
+import { promisify } from 'util';
+import { createInterface } from 'readline';
+
+const execFile = promisify(execFileCb);
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = join(__dirname, '..');
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface Config {
+  openrouter_models: Array<{ id: string; label: string }>;
+  auto_blend_plans?: boolean;
+}
+
+interface ModelResult {
+  model: string;
+  response: string;
+}
+
+interface OpenRouterResponse {
+  choices?: Array<{ message: { content: string } }>;
+}
+
+// ---------------------------------------------------------------------------
+// .env loader
+// ---------------------------------------------------------------------------
+function loadEnv(): void {
+  try {
+    const env = readFileSync(join(PROJECT_ROOT, '.env'), 'utf8');
+    for (const line of env.split('\n')) {
+      const [key, ...val] = line.split('=');
+      if (key && val.length) process.env[key.trim()] = val.join('=').trim();
+    }
+  } catch {
+    // no .env
+  }
+}
+loadEnv();
+
+// ---------------------------------------------------------------------------
+// Model queries (same as index.ts)
+// ---------------------------------------------------------------------------
+
+async function queryCodex(prompt: string): Promise<ModelResult> {
+  try {
+    const { stdout } = await execFile('codex', ['--full-auto', '-q', prompt], {
+      timeout: 90_000,
+    });
+    return { model: 'Codex', response: stdout };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { model: 'Codex', response: `Error: ${message}` };
+  }
+}
+
+async function queryOpenRouter(
+  prompt: string,
+  modelId: string,
+  modelLabel: string,
+): Promise<ModelResult> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 60_000);
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://github.com/smoothie-mcp',
+        'X-Title': 'Smoothie',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: modelId,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    const data = (await res.json()) as OpenRouterResponse;
+    const text = data.choices?.[0]?.message?.content ?? 'No response content';
+    return { model: modelLabel, response: text };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { model: modelLabel, response: `Error: ${message}` };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Read prompt from arg or stdin
+// ---------------------------------------------------------------------------
+
+async function getPrompt(): Promise<string> {
+  if (process.argv[2]) return process.argv[2];
+
+  // Read from stdin
+  const rl = createInterface({ input: process.stdin });
+  const lines: string[] = [];
+  for await (const line of rl) {
+    lines.push(line);
+  }
+  return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+async function main(): Promise<void> {
+  const prompt = await getPrompt();
+  if (!prompt.trim()) {
+    process.stderr.write('blend-cli: no prompt provided\n');
+    process.exit(1);
+  }
+
+  let config: Config;
+  try {
+    config = JSON.parse(
+      readFileSync(join(PROJECT_ROOT, 'config.json'), 'utf8'),
+    ) as Config;
+  } catch {
+    config = { openrouter_models: [] };
+  }
+
+  const models: Array<{ fn: () => Promise<ModelResult>; label: string }> = [
+    { fn: () => queryCodex(prompt), label: 'Codex' },
+    ...config.openrouter_models.map((m) => ({
+      fn: () => queryOpenRouter(prompt, m.id, m.label),
+      label: m.label,
+    })),
+  ];
+
+  process.stderr.write('\n🧃 Smoothie blending...\n\n');
+  for (const { label } of models) {
+    process.stderr.write(`  ⏳ ${label.padEnd(26)} waiting...\n`);
+  }
+  process.stderr.write('\n');
+
+  const startTimes: Record<string, number> = {};
+  const promises = models.map(({ fn, label }) => {
+    startTimes[label] = Date.now();
+    return fn()
+      .then((result) => {
+        const elapsed = ((Date.now() - startTimes[label]) / 1000).toFixed(1);
+        process.stderr.write(`  ✓  ${label.padEnd(26)} done (${elapsed}s)\n`);
+        return result;
+      })
+      .catch((err: unknown) => {
+        const elapsed = ((Date.now() - startTimes[label]) / 1000).toFixed(1);
+        const message = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`  ✗  ${label.padEnd(26)} failed (${elapsed}s)\n`);
+        return { model: label, response: `Error: ${message}` };
+      });
+  });
+
+  const results = await Promise.all(promises);
+  process.stderr.write('\n  ◆  All done.\n\n');
+
+  // Output JSON to stdout (for hook consumption)
+  process.stdout.write(JSON.stringify({ results }, null, 2));
+}
+
+main();
