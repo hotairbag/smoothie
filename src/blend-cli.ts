@@ -64,7 +64,7 @@ async function queryCodex(prompt: string): Promise<ModelResult> {
   try {
     const tmpFile = join(PROJECT_ROOT, `.codex-out-${Date.now()}.txt`);
     await execFile('codex', ['exec', '--full-auto', '-o', tmpFile, prompt], {
-      timeout: 90_000,
+      timeout: 180_000,
     });
     let response: string;
     try {
