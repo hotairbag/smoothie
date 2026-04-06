@@ -1,5 +1,9 @@
 # Smoothie
 
+<p align="center">
+  <img src="banner.svg" alt="Smoothie — multi-model review for Claude Code" width="100%">
+</p>
+
 Multi-model review plugin for Claude Code. Sends your problem or plan to multiple AI models simultaneously, then Claude judges all responses and serves you one blended result.
 
 **Two model tracks:**
@@ -52,8 +56,8 @@ Claude acts as judge. Raw model outputs are never shown. Claude absorbs everythi
 
 | File | Purpose |
 |---|---|
-| `index.js` | MCP server exposing `smoothie_blend` tool |
-| `select-models.js` | Interactive model picker (OpenRouter API) |
+| `src/index.ts` | MCP server exposing `smoothie_blend` tool |
+| `src/select-models.ts` | Interactive model picker (OpenRouter API) |
 | `install.sh` | One-command installer |
 | `plan-hook.sh` | Stop hook for plan mode detection |
 | `config.json` | Model selection (written by installer) |
