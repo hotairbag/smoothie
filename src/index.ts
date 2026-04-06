@@ -69,10 +69,19 @@ loadEnv();
 
 async function queryCodex(prompt: string): Promise<ModelResult> {
   try {
-    const { stdout } = await execFile('codex', ['exec', prompt], {
+    const tmpFile = join(PROJECT_ROOT, `.codex-out-${Date.now()}.txt`);
+    await execFile('codex', ['exec', '--full-auto', '-o', tmpFile, prompt], {
       timeout: 90_000,
     });
-    return { model: 'Codex', response: stdout };
+    let response: string;
+    try {
+      response = readFileSync(tmpFile, 'utf8').trim();
+      const { unlinkSync } = await import('fs');
+      unlinkSync(tmpFile);
+    } catch {
+      response = '';
+    }
+    return { model: 'Codex', response: response || '(empty response)' };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return { model: 'Codex', response: `Error: ${message}` };
