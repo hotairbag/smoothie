@@ -25,9 +25,16 @@ interface Config {
 }
 
 const FALLBACK_MODELS: ModelEntry[] = [
-  { id: 'google/gemini-2.5-pro-preview', label: 'Gemini 2.5 Pro Preview' },
-  { id: 'x-ai/grok-3', label: 'Grok 3' },
+  { id: 'google/gemini-2.5-pro-preview', label: 'Gemini 2.5 Pro' },
   { id: 'deepseek/deepseek-r2', label: 'DeepSeek R2' },
+  { id: 'x-ai/grok-3', label: 'Grok 3' },
+  { id: 'qwen/qwen-2.5-coder-32b-instruct', label: 'Qwen 2.5 Coder' },
+  { id: 'mistralai/codestral-2501', label: 'Codestral' },
+];
+
+const CODING_PROVIDERS = [
+  'anthropic', 'google', 'openai', 'x-ai', 'deepseek',
+  'qwen', 'mistralai', 'meta-llama', 'cohere', 'amazon',
 ];
 
 function loadEnv(): void {
@@ -73,16 +80,27 @@ async function fetchModels(apiKey: string): Promise<OpenRouterModel[] | null> {
   }
 }
 
+function isCodingModel(model: OpenRouterModel): boolean {
+  if ((model.context_length || 0) < 32000) return false;
+  if (model.id.includes('embed')) return false;
+  if (model.id.includes('vision') && !model.id.includes('omni')) return false;
+  const provider = model.id.includes('/') ? model.id.split('/')[0] : model.id;
+  return CODING_PROVIDERS.includes(provider);
+}
+
 function dedupeAndFilter(models: OpenRouterModel[]): OpenRouterModel[] {
-  const filtered = models.filter((m) => (m.context_length || 0) >= 32000);
+  const coding = models.filter(isCodingModel);
+
+  // Deduplicate by provider family
   const seen = new Set<string>();
   const deduped: OpenRouterModel[] = [];
-  for (const m of filtered) {
+  for (const m of coding) {
     const provider = m.id.includes('/') ? m.id.split('/')[0] : m.id;
     if (seen.has(provider)) continue;
     seen.add(provider);
     deduped.push(m);
   }
+
   return deduped.slice(0, 8);
 }
 
@@ -171,6 +189,16 @@ async function cmdPick(apiKey: string, configPath: string): Promise<void> {
         ? deduped.map((m) => ({ id: m.id, label: formatLabel(m) }))
         : FALLBACK_MODELS.map((m) => ({ ...m }));
   }
+
+  // Exclude the judge's own model family
+  const platform = process.env.SMOOTHIE_PLATFORM || 'claude';
+  const excludePrefixes: Record<string, string[]> = {
+    claude: ['anthropic'],
+    codex: ['openai'],
+    gemini: ['google'],
+  };
+  const excluded = excludePrefixes[platform] || [];
+  topModels = topModels.filter(m => !excluded.some(prefix => m.id.startsWith(prefix + '/')));
 
   // Default selection: first 3
   const selected = new Set([0, 1, 2]);

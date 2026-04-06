@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { execFile as execFileCb } from 'child_process';
+import { execFile as execFileCb, execFileSync } from 'child_process';
 import { promisify } from 'util';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -105,6 +105,10 @@ async function queryOpenRouter(
 
     clearTimeout(timer);
 
+    if (!res.ok) {
+      return { model: modelLabel, response: `Error: HTTP ${res.status} (${res.statusText})` };
+    }
+
     const data = (await res.json()) as OpenRouterResponse;
     const text = data.choices?.[0]?.message?.content ?? 'No response content';
     return { model: modelLabel, response: text };
@@ -115,6 +119,79 @@ async function queryOpenRouter(
 }
 
 // ---------------------------------------------------------------------------
+// Platform helpers
+// ---------------------------------------------------------------------------
+
+function isCodexInstalled(): boolean {
+  try {
+    execFileSync('which', ['codex'], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function findContextFile(): string | null {
+  for (const name of ['GEMINI.md', 'CLAUDE.md', 'AGENTS.md']) {
+    try {
+      const content = readFileSync(join(process.cwd(), name), 'utf8');
+      if (content.trim()) return content;
+    } catch {}
+  }
+  return null;
+}
+
+function buildDeepContext(prompt: string): string {
+  const TOKEN_CAP = 16000;
+  const CHAR_CAP = TOKEN_CAP * 4; // ~4 chars per token
+
+  const parts: string[] = [`## Prompt\n${prompt}`];
+  let totalLen = parts[0].length;
+
+  // Context file
+  const ctxFile = findContextFile();
+  if (ctxFile && totalLen + ctxFile.length < CHAR_CAP) {
+    parts.push(`## Context File\n${ctxFile}`);
+    totalLen += ctxFile.length;
+  }
+
+  // Git diff (recent changes, capped at 100KB)
+  try {
+    const diff = execFileSync('git', ['diff', 'HEAD~3'], {
+      encoding: 'utf8',
+      maxBuffer: 100 * 1024,
+      timeout: 10_000,
+    });
+    if (diff && totalLen + diff.length < CHAR_CAP) {
+      parts.push(`## Recent Git Diff\n${diff}`);
+      totalLen += diff.length;
+    } else if (diff) {
+      const truncated = diff.slice(0, CHAR_CAP - totalLen - 100);
+      parts.push(`## Recent Git Diff (truncated)\n${truncated}`);
+      totalLen += truncated.length;
+    }
+  } catch {}
+
+  // Directory listing (git tracked files only - respects .gitignore)
+  try {
+    const files = execFileSync('git', ['ls-files'], {
+      encoding: 'utf8',
+      timeout: 5_000,
+    });
+    // Filter out sensitive files
+    const SENSITIVE = ['.env', '.pem', '.key', 'secret', 'credential', 'token'];
+    const filtered = files.split('\n').filter((f: string) =>
+      f && !SENSITIVE.some(s => f.toLowerCase().includes(s))
+    ).join('\n');
+    if (filtered && totalLen + filtered.length < CHAR_CAP) {
+      parts.push(`## Project Files\n${filtered}`);
+    }
+  } catch {}
+
+  return parts.join('\n\n');
+}
+
+// ---------------------------------------------------------------------------
 // MCP Server
 // ---------------------------------------------------------------------------
 
@@ -122,8 +199,11 @@ const server = new McpServer({ name: 'smoothie', version: '1.0.0' });
 
 server.tool(
   'smoothie_blend',
-  { prompt: z.string().describe('The prompt to send to all models') },
-  async ({ prompt }) => {
+  {
+    prompt: z.string().describe('The prompt to send to all models'),
+    deep: z.boolean().optional().describe('Full context mode with project files and git diff'),
+  },
+  async ({ prompt, deep }) => {
     // Read config on every request so edits take effect immediately
     let config: Config;
     try {
@@ -134,16 +214,31 @@ server.tool(
       config = { openrouter_models: [] };
     }
 
-    // Build model array
-    const models: ModelEntry[] = [
-      { fn: () => queryCodex(prompt), label: 'Codex' },
-      ...config.openrouter_models.map(
-        (m: OpenRouterModel): ModelEntry => ({
-          fn: () => queryOpenRouter(prompt, m.id, m.label),
-          label: m.label,
-        }),
-      ),
-    ];
+    const finalPrompt = deep ? buildDeepContext(prompt) : prompt;
+
+    // Build model array based on platform
+    const platform = process.env.SMOOTHIE_PLATFORM || 'claude';
+    const models: ModelEntry[] = [];
+
+    // Add platform-specific models
+    if (platform !== 'codex' && isCodexInstalled()) {
+      models.push({ fn: () => queryCodex(finalPrompt), label: 'Codex' });
+    }
+    if (platform === 'codex' || platform === 'gemini') {
+      // Add Claude via OpenRouter as a reviewer (not the judge)
+      models.push({
+        fn: () => queryOpenRouter(finalPrompt, 'anthropic/claude-sonnet-4', 'Claude Sonnet'),
+        label: 'Claude Sonnet',
+      });
+    }
+
+    // Add OpenRouter models from config
+    for (const m of config.openrouter_models) {
+      models.push({
+        fn: () => queryOpenRouter(finalPrompt, m.id, m.label),
+        label: m.label,
+      });
+    }
 
     // Print initial progress
     process.stderr.write('\n\u{1F9C3} Smoothie blending...\n\n');
@@ -175,10 +270,82 @@ server.tool(
     });
 
     const results: ModelResult[] = await Promise.all(promises);
-    process.stderr.write('\n  \u25C6  All done. Handing to Claude...\n\n');
+    const judgeNames: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini' };
+    const judgeName = judgeNames[platform] || 'the judge';
+    process.stderr.write(`\n  \u25C6  All done. Handing to ${judgeName}...\n\n`);
 
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({ results }, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  'smoothie_estimate',
+  {
+    prompt: z.string().describe('The prompt to estimate costs for'),
+    deep: z.boolean().optional().describe('Estimate for deep mode'),
+  },
+  async ({ prompt, deep }) => {
+    let config: Config;
+    try {
+      config = JSON.parse(readFileSync(join(PROJECT_ROOT, 'config.json'), 'utf8')) as Config;
+    } catch {
+      config = { openrouter_models: [] };
+    }
+
+    const contextPayload = deep ? buildDeepContext(prompt) : prompt;
+    const tokenCount = Math.ceil(contextPayload.length / 4);
+
+    // Fetch pricing from OpenRouter
+    let pricingMap: Record<string, number> = {};
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` },
+      });
+      const data = (await res.json()) as { data?: Array<{ id: string; pricing?: { prompt?: string } }> };
+      if (data.data) {
+        for (const m of data.data) {
+          pricingMap[m.id] = parseFloat(m.pricing?.prompt || '0');
+        }
+      }
+    } catch {
+      // Pricing unavailable — continue with zeros
+    }
+
+    const platform = process.env.SMOOTHIE_PLATFORM || 'claude';
+    const rows: Array<{ label: string; tokens: number; cost: number; note?: string }> = [];
+
+    if (platform === 'claude') {
+      if (isCodexInstalled()) {
+        rows.push({ label: 'Codex', tokens: tokenCount, cost: 0, note: 'free (subscription)' });
+      }
+    }
+    if (platform === 'codex' || platform === 'gemini') {
+      const price = pricingMap['anthropic/claude-sonnet-4'] || 0;
+      rows.push({ label: 'Claude Sonnet', tokens: tokenCount, cost: tokenCount * price });
+    }
+    if (platform === 'gemini' && isCodexInstalled()) {
+      rows.push({ label: 'Codex', tokens: tokenCount, cost: 0, note: 'free (subscription)' });
+    }
+
+    for (const model of config.openrouter_models) {
+      const price = pricingMap[model.id] || 0;
+      rows.push({
+        label: model.label,
+        tokens: tokenCount,
+        cost: tokenCount * price,
+        note: price === 0 && Object.keys(pricingMap).length === 0 ? 'pricing unavailable' : undefined,
+      });
+    }
+
+    const totalCost = rows.reduce((sum, r) => sum + (r.cost || 0), 0);
+
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({ rows, totalCost, tokenCount, note: 'Token estimates are approximate (~4 chars/token)' }, null, 2),
+      }],
     };
   },
 );

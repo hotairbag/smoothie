@@ -125,10 +125,39 @@ async function getPrompt(): Promise<string> {
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const deep = args.includes('--deep');
+  const filteredArgs = args.filter(a => a !== '--deep');
+  // Temporarily override argv for getPrompt
+  process.argv = [process.argv[0], process.argv[1], ...filteredArgs];
   const prompt = await getPrompt();
   if (!prompt.trim()) {
     process.stderr.write('blend-cli: no prompt provided\n');
     process.exit(1);
+  }
+
+  let finalPrompt = prompt;
+  if (deep) {
+    // Read context file
+    for (const name of ['GEMINI.md', 'CLAUDE.md', 'AGENTS.md']) {
+      try {
+        const content = readFileSync(join(process.cwd(), name), 'utf8');
+        if (content.trim()) {
+          finalPrompt = `## Context File\n${content}\n\n## Prompt\n${prompt}`;
+          break;
+        }
+      } catch {
+        // file not found, try next
+      }
+    }
+    // Add git diff
+    try {
+      const { execFileSync } = await import('child_process');
+      const diff = execFileSync('git', ['diff', 'HEAD~3'], { encoding: 'utf8', maxBuffer: 100 * 1024, timeout: 10000 });
+      if (diff) finalPrompt += `\n\n## Recent Git Diff\n${diff.slice(0, 40000)}`;
+    } catch {
+      // no git diff available
+    }
   }
 
   let config: Config;
@@ -141,9 +170,9 @@ async function main(): Promise<void> {
   }
 
   const models: Array<{ fn: () => Promise<ModelResult>; label: string }> = [
-    { fn: () => queryCodex(prompt), label: 'Codex' },
+    { fn: () => queryCodex(finalPrompt), label: 'Codex' },
     ...config.openrouter_models.map((m) => ({
-      fn: () => queryOpenRouter(prompt, m.id, m.label),
+      fn: () => queryOpenRouter(finalPrompt, m.id, m.label),
       label: m.label,
     })),
   ];

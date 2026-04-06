@@ -11,7 +11,7 @@ B='\033[1m'       # bold
 N='\033[0m'       # reset
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TOTAL_STEPS=6
+TOTAL_STEPS=7
 STEP=0
 
 step() {
@@ -65,37 +65,71 @@ spin $! "Compiling TypeScript"
 npm link --silent 2>/dev/null &
 spin $! "Linking smoothie CLI"
 
-# ─── Step 2: Codex CLI (optional) ────────────────────────────────────
-step "Setting up Codex ${D}(optional)${N}"
+# ─── Step 2: Detect platform ─────────────────────────────────────────
+step "Detecting platform"
 
-echo ""
-echo -e "  ${D}Codex adds OpenAI's coding model to the blend.${N}"
-echo -e "  ${D}Requires a ChatGPT account. Skip if you only want OpenRouter.${N}"
-echo ""
-read -p "  Set up Codex? [Y/n]: " SETUP_CODEX
+HAS_CLAUDE=$(command -v claude &>/dev/null && echo "yes" || echo "no")
+HAS_CODEX=$(command -v codex &>/dev/null && echo "yes" || echo "no")
+HAS_GEMINI=$(command -v gemini &>/dev/null && echo "yes" || echo "no")
 
-if [[ "$SETUP_CODEX" =~ ^[Nn]$ ]]; then
-  echo -e "  ${D}Skipped — blend will use OpenRouter models only${N}"
+DETECTED=()
+[ "$HAS_CLAUDE" = "yes" ] && DETECTED+=("claude:Claude Code")
+[ "$HAS_CODEX"  = "yes" ] && DETECTED+=("codex:Codex CLI")
+[ "$HAS_GEMINI" = "yes" ] && DETECTED+=("gemini:Gemini CLI")
+
+if [ ${#DETECTED[@]} -eq 0 ]; then
+  echo -e "  ${Y}No AI CLI detected. Defaulting to Claude Code.${N}"
+  PLATFORM="claude"
+elif [ ${#DETECTED[@]} -eq 1 ]; then
+  PLATFORM="${DETECTED[0]%%:*}"
+  echo -e "  ${G}✓${N} ${DETECTED[0]##*:}"
 else
-  if ! command -v codex &>/dev/null; then
-    npm install -g @openai/codex 2>/dev/null &
-    spin $! "Installing Codex CLI"
-  else
-    echo -e "  ${G}✓${N} Codex CLI found"
-  fi
+  echo ""
+  i=1
+  for entry in "${DETECTED[@]}"; do
+    echo -e "  ${B}$i.${N} ${entry##*:}"
+    i=$((i+1))
+  done
+  echo ""
+  read -p "  Install for which platform? [1]: " CHOICE
+  CHOICE=${CHOICE:-1}
+  PLATFORM="${DETECTED[$((CHOICE-1))]%%:*}"
+  echo -e "  ${G}✓${N} ${PLATFORM}"
+fi
 
-  if codex auth status 2>/dev/null | grep -q "Logged in"; then
-    echo -e "  ${G}✓${N} Already authenticated"
+# ─── Step 3: Codex CLI (optional, not shown for codex platform) ──────
+if [ "$PLATFORM" != "codex" ]; then
+  step "Setting up Codex ${D}(optional)${N}"
+
+  echo ""
+  echo -e "  ${D}Codex adds OpenAI's coding model to the blend.${N}"
+  echo -e "  ${D}Requires a ChatGPT account. Skip if you only want OpenRouter.${N}"
+  echo ""
+  read -p "  Set up Codex? [Y/n]: " SETUP_CODEX
+
+  if [[ "$SETUP_CODEX" =~ ^[Nn]$ ]]; then
+    echo -e "  ${D}Skipped — blend will use OpenRouter models only${N}"
   else
-    echo ""
-    echo -e "  ${D}Opens browser → sign in with ChatGPT account${N}"
-    read -p "  Press Enter when ready → " _
-    codex auth login >/dev/null 2>&1
-    echo -e "  ${G}✓${N} Codex authenticated"
+    if ! command -v codex &>/dev/null; then
+      npm install -g @openai/codex 2>/dev/null &
+      spin $! "Installing Codex CLI"
+    else
+      echo -e "  ${G}✓${N} Codex CLI found"
+    fi
+
+    if codex auth status 2>/dev/null | grep -q "Logged in"; then
+      echo -e "  ${G}✓${N} Already authenticated"
+    else
+      echo ""
+      echo -e "  ${D}Opens browser → sign in with ChatGPT account${N}"
+      read -p "  Press Enter when ready → " _
+      codex auth login >/dev/null 2>&1
+      echo -e "  ${G}✓${N} Codex authenticated"
+    fi
   fi
 fi
 
-# ─── Step 3: OpenRouter ──────────────────────────────────────────────
+# ─── Step 4: OpenRouter ──────────────────────────────────────────────
 step "Connecting OpenRouter"
 
 echo ""
@@ -112,14 +146,15 @@ else
   echo "OPENROUTER_API_KEY=$OPENROUTER_KEY" > "$SCRIPT_DIR/.env"
   echo -e "  ${G}✓${N} Key saved"
 fi
+echo "SMOOTHIE_PLATFORM=$PLATFORM" >> "$SCRIPT_DIR/.env"
 
-# ─── Step 4: Pick models ─────────────────────────────────────────────
+# ─── Step 5: Pick models ─────────────────────────────────────────────
 step "Choosing models"
 
 echo ""
 node "$SCRIPT_DIR/dist/select-models.js" "$OPENROUTER_KEY" "$SCRIPT_DIR/config.json"
 
-# ─── Step 5: Auto-blend ──────────────────────────────────────────────
+# ─── Step 6: Auto-blend ──────────────────────────────────────────────
 step "Configuring hooks"
 
 chmod +x "$SCRIPT_DIR/plan-hook.sh" "$SCRIPT_DIR/auto-blend-hook.sh" "$SCRIPT_DIR/pr-blend-hook.sh"
@@ -141,27 +176,28 @@ else
   echo -e "  ${D}Skipped — toggle in config.json anytime${N}"
 fi
 
-# ─── Step 6: Wire up Claude Code ─────────────────────────────────────
-step "Wiring up Claude Code"
+# ─── Step 7: Wire up ─────────────────────────────────────────────────
+step "Wiring up"
 
-# Find .claude dir
-CLAUDE_DIR=""
-SEARCH_DIR="$PWD"
-while [ "$SEARCH_DIR" != "/" ]; do
-  if [ -d "$SEARCH_DIR/.claude" ]; then
-    CLAUDE_DIR="$SEARCH_DIR/.claude"
-    break
+if [ "$PLATFORM" = "claude" ]; then
+  # Find .claude dir
+  CLAUDE_DIR=""
+  SEARCH_DIR="$PWD"
+  while [ "$SEARCH_DIR" != "/" ]; do
+    if [ -d "$SEARCH_DIR/.claude" ]; then
+      CLAUDE_DIR="$SEARCH_DIR/.claude"
+      break
+    fi
+    SEARCH_DIR="$(dirname "$SEARCH_DIR")"
+  done
+  if [ -z "$CLAUDE_DIR" ]; then
+    CLAUDE_DIR="$HOME/.claude"
+    mkdir -p "$CLAUDE_DIR"
   fi
-  SEARCH_DIR="$(dirname "$SEARCH_DIR")"
-done
-if [ -z "$CLAUDE_DIR" ]; then
-  CLAUDE_DIR="$HOME/.claude"
-  mkdir -p "$CLAUDE_DIR"
-fi
 
-# Slash command
-mkdir -p "$CLAUDE_DIR/commands"
-cat > "$CLAUDE_DIR/commands/smoothie.md" << 'EOF'
+  # Slash command
+  mkdir -p "$CLAUDE_DIR/commands"
+  cat > "$CLAUDE_DIR/commands/smoothie.md" << 'EOF'
 You are running Smoothie — a multi-model review session.
 
 The user has provided this context/problem:
@@ -182,9 +218,9 @@ Do NOT show the user raw model outputs.
 
 Use your full codebase context to filter out irrelevant suggestions. Be decisive.
 EOF
-echo -e "  ${G}✓${N} Slash command /smoothie"
+  echo -e "  ${G}✓${N} Slash command /smoothie"
 
-cat > "$CLAUDE_DIR/commands/smoothie-pr.md" << 'EOF'
+  cat > "$CLAUDE_DIR/commands/smoothie-pr.md" << 'EOF'
 You are running Smoothie PR Review — a multi-model code review.
 
 $ARGUMENTS
@@ -203,14 +239,14 @@ Call `smoothie_blend` with a prompt asking models to review the diff for:
 Summarize the review. List concrete issues found (if any) with file:line references.
 If everything looks good, say so briefly. Be direct.
 EOF
-echo -e "  ${G}✓${N} Slash command /smoothie-pr"
+  echo -e "  ${G}✓${N} Slash command /smoothie-pr"
 
-# Merge settings.json
-SETTINGS_FILE="$CLAUDE_DIR/settings.json"
-EXISTING="{}"
-[ -f "$SETTINGS_FILE" ] && EXISTING=$(cat "$SETTINGS_FILE")
+  # Merge settings.json
+  SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+  EXISTING="{}"
+  [ -f "$SETTINGS_FILE" ] && EXISTING=$(cat "$SETTINGS_FILE")
 
-node - << NODEJS
+  node - << NODEJS
 const fs = require('fs');
 let s;
 try { s = JSON.parse(\`$EXISTING\`); } catch(e) { s = {}; }
@@ -219,7 +255,7 @@ s.mcpServers = s.mcpServers || {};
 s.mcpServers.smoothie = {
   command: "node",
   args: ["$SCRIPT_DIR/dist/index.js"],
-  env: { OPENROUTER_API_KEY: "$OPENROUTER_KEY" }
+  env: { OPENROUTER_API_KEY: "$OPENROUTER_KEY", SMOOTHIE_PLATFORM: "$PLATFORM" }
 };
 
 s.hooks = s.hooks || {};
@@ -258,8 +294,67 @@ if (!stopExists) {
 
 fs.writeFileSync('$SETTINGS_FILE', JSON.stringify(s, null, 2));
 NODEJS
-echo -e "  ${G}✓${N} MCP server registered"
-echo -e "  ${G}✓${N} Hooks configured"
+  echo -e "  ${G}✓${N} MCP server registered"
+  echo -e "  ${G}✓${N} Hooks configured"
+fi
+
+if [ "$PLATFORM" = "gemini" ]; then
+  mkdir -p "$HOME/.gemini/commands"
+
+  # Gemini MCP server
+  GEMINI_SETTINGS="$HOME/.gemini/settings.json"
+  GEMINI_EXISTING="{}"
+  [ -f "$GEMINI_SETTINGS" ] && GEMINI_EXISTING=$(cat "$GEMINI_SETTINGS")
+
+  node -e "
+    const fs = require('fs');
+    let s;
+    try { s = JSON.parse(\`$GEMINI_EXISTING\`); } catch(e) { s = {}; }
+    s.mcpServers = s.mcpServers || {};
+    s.mcpServers.smoothie = {
+      command: 'node',
+      args: ['$SCRIPT_DIR/dist/index.js'],
+      env: { OPENROUTER_API_KEY: '$OPENROUTER_KEY', SMOOTHIE_PLATFORM: 'gemini' }
+    };
+    fs.writeFileSync('$GEMINI_SETTINGS', JSON.stringify(s, null, 2));
+  "
+  echo -e "  ${G}✓${N} Gemini MCP server registered"
+
+  # Gemini slash commands (.toml)
+  cat > "$HOME/.gemini/commands/smoothie.toml" << 'TOML'
+description = "Blend this problem across multiple AI models. Gemini judges."
+
+prompt = """
+You are running Smoothie — a multi-model review session.
+
+{{args}}
+
+Step 1 — Call smoothie_blend with the problem text. Wait for results.
+
+Step 2 — You have responses from all models. Do NOT show raw outputs.
+- If reviewing a problem: give the answer. Mention conflicts in one sentence.
+- If reviewing a plan: return a revised plan. End with "What changed" bullets.
+
+Be decisive. Use your full codebase context.
+"""
+TOML
+  echo -e "  ${G}✓${N} Slash command /smoothie (Gemini)"
+
+  cat > "$HOME/.gemini/commands/smoothie-pr.toml" << 'TOML'
+description = "Multi-model PR review before creating a pull request."
+
+prompt = """
+You are running Smoothie PR Review.
+
+{{args}}
+
+Step 1 — Run git diff main...HEAD to get the branch diff.
+Step 2 — Call smoothie_blend asking models to review the diff for bugs, security, performance.
+Step 3 — Summarize findings with file:line references. Be direct.
+"""
+TOML
+  echo -e "  ${G}✓${N} Slash command /smoothie-pr (Gemini)"
+fi
 
 # ─── Done ─────────────────────────────────────────────────────────────
 MODELS=$(node -e "

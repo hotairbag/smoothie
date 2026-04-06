@@ -56,7 +56,8 @@ case "$1" in
     echo "  smoothie auto on             Enable auto-blend for plans"
     echo "  smoothie auto off            Disable auto-blend"
     echo ""
-    echo "  smoothie blend \"<prompt>\"    Run a blend from terminal"
+    echo "  smoothie blend \"<prompt>\"         Run a blend from terminal"
+    echo "  smoothie blend --deep \"<prompt>\"  Deep blend with full context"
     echo ""
     ;;
   *)
