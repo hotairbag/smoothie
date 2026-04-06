@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" fill="none">
+  <style>
+    @keyframes typeIn { from { width: 0; } to { width: 100%; } }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    @keyframes dropIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes drawLine { from { stroke-dashoffset: 150; } to { stroke-dashoffset: 0; } }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+    @keyframes checkIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .title { opacity: 0; animation: dropIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards; }
+    .subtitle { opacity: 0; animation: dropIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards; }
+    .terminal { opacity: 0; animation: scaleIn 0.4s ease 0.9s forwards; }
+    .prompt-text { opacity: 0; animation: checkIn 0.3s ease 1.4s forwards; }
+    .cursor { opacity: 0; animation: checkIn 0.01s ease 1.4s forwards, blink 1s step-end 1.4s 3; }
+    .line1 { opacity: 0; stroke-dasharray: 150; stroke-dashoffset: 150; animation: checkIn 0.01s ease 2.2s forwards, drawLine 0.5s ease 2.2s forwards; }
+    .card { opacity: 0; animation: scaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) 2.7s forwards; }
+    .row1 { opacity: 0; animation: dropIn 0.3s ease 3.2s forwards; }
+    .row2 { opacity: 0; animation: dropIn 0.3s ease 3.45s forwards; }
+    .row3 { opacity: 0; animation: dropIn 0.3s ease 3.7s forwards; }
+    .row4 { opacity: 0; animation: dropIn 0.3s ease 3.95s forwards; }
+    .row5 { opacity: 0; animation: dropIn 0.3s ease 4.2s forwards; }
+    .line2 { opacity: 0; stroke-dasharray: 150; stroke-dashoffset: 150; animation: checkIn 0.01s ease 4.7s forwards, drawLine 0.5s ease 4.7s forwards; }
+    .result { opacity: 0; animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 5.3s forwards; }
+    .check1 { opacity: 0; animation: checkIn 0.2s ease 5.9s forwards; }
+    .check2 { opacity: 0; animation: checkIn 0.2s ease 6.1s forwards; }
+    .check3 { opacity: 0; animation: checkIn 0.2s ease 6.3s forwards; }
+  </style>
+
+  <defs>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="420" rx="0" fill="#0d1117"/>
+
+  <!-- Title -->
+  <text class="title" x="600" y="52" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="38" font-weight="700" fill="#f0f6fc" letter-spacing="-0.5">smoothie</text>
+  <text class="subtitle" x="600" y="80" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" fill="#7d8590">multi-model review for Claude Code</text>
+
+  <!-- Left: terminal box -->
+  <g class="terminal">
+    <rect x="40" y="195" width="210" height="80" rx="10" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+    <!-- traffic lights -->
+    <circle cx="58" cy="212" r="4.5" fill="#f85149" fill-opacity="0.8"/>
+    <circle cx="72" cy="212" r="4.5" fill="#d29922" fill-opacity="0.8"/>
+    <circle cx="86" cy="212" r="4.5" fill="#3fb950" fill-opacity="0.8"/>
+  </g>
+  <g class="prompt-text">
+    <text x="58" y="250" font-family="'SF Mono', 'Fira Code', monospace" font-size="14" fill="#7d8590">$</text>
+    <text x="72" y="250" font-family="'SF Mono', 'Fira Code', monospace" font-size="14" fill="#f0f6fc">/smoothie</text>
+  </g>
+  <rect class="cursor" x="152" y="237" width="8" height="16" fill="#58a6ff" opacity="0"/>
+
+  <!-- Arrow 1 -->
+  <line class="line1" x1="265" y1="235" x2="405" y2="235" stroke="#30363d" stroke-width="2" opacity="0"/>
+  <g class="line1" opacity="0">
+    <polygon points="400,229 412,235 400,241" fill="#30363d"/>
+  </g>
+
+  <!-- Center: model card -->
+  <g class="card">
+    <rect x="420" y="120" width="360" height="280" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1" filter="url(#shadow)"/>
+    <text x="600" y="152" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#7d8590" letter-spacing="2">MODELS</text>
+    <line x1="450" y1="165" x2="750" y2="165" stroke="#21262d" stroke-width="1"/>
+  </g>
+
+  <!-- Model rows with status dots -->
+  <g class="row1">
+    <circle cx="460" cy="195" r="4" fill="#3fb950"/>
+    <text x="475" y="199" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" fill="#f0f6fc">Opus 4.6</text>
+    <text x="740" y="199" text-anchor="end" font-family="'SF Mono', 'Fira Code', monospace" font-size="11" fill="#7d8590">2.1s</text>
+  </g>
+  <g class="row2">
+    <circle cx="460" cy="225" r="4" fill="#3fb950"/>
+    <text x="475" y="229" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" fill="#f0f6fc">GPT 5.4 Codex</text>
+    <text x="740" y="229" text-anchor="end" font-family="'SF Mono', 'Fira Code', monospace" font-size="11" fill="#7d8590">3.8s</text>
+  </g>
+  <g class="row3">
+    <circle cx="460" cy="255" r="4" fill="#3fb950"/>
+    <text x="475" y="259" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" fill="#f0f6fc">Gemini 3.1 Pro</text>
+    <text x="740" y="259" text-anchor="end" font-family="'SF Mono', 'Fira Code', monospace" font-size="11" fill="#7d8590">4.2s</text>
+  </g>
+  <g class="row4">
+    <circle cx="460" cy="285" r="4" fill="#3fb950"/>
+    <text x="475" y="289" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" fill="#f0f6fc">Grok 4.20</text>
+    <text x="740" y="289" text-anchor="end" font-family="'SF Mono', 'Fira Code', monospace" font-size="11" fill="#7d8590">5.1s</text>
+  </g>
+  <g class="row5">
+    <circle cx="460" cy="315" r="4" fill="#7d8590"/>
+    <text x="475" y="319" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" fill="#7d8590">+ more via OpenRouter</text>
+  </g>
+
+  <!-- Status bar in card -->
+  <g class="row5">
+    <rect x="450" y="340" width="300" height="4" rx="2" fill="#21262d"/>
+    <rect x="450" y="340" width="300" height="4" rx="2" fill="#3fb950" fill-opacity="0.6"/>
+    <text x="600" y="365" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace" font-size="10" fill="#3fb950">all models responded</text>
+  </g>
+
+  <!-- Arrow 2 -->
+  <line class="line2" x1="795" y1="235" x2="935" y2="235" stroke="#30363d" stroke-width="2" opacity="0"/>
+  <g class="line2" opacity="0">
+    <polygon points="930,229 942,235 930,241" fill="#30363d"/>
+  </g>
+
+  <!-- Right: result card -->
+  <g class="result">
+    <rect x="950" y="170" width="215" height="130" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1" filter="url(#shadow)"/>
+    <text x="1057" y="200" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#7d8590" letter-spacing="2">OUTPUT</text>
+    <line x1="975" y1="212" x2="1140" y2="212" stroke="#21262d" stroke-width="1"/>
+  </g>
+  <g class="check1">
+    <text x="975" y="236" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" fill="#f0f6fc">Judged by Claude</text>
+  </g>
+  <g class="check2">
+    <text x="975" y="258" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" fill="#f0f6fc">Conflicts resolved</text>
+  </g>
+  <g class="check3">
+    <text x="975" y="280" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" fill="#3fb950" font-weight="600">One clean answer</text>
+  </g>
+</svg>

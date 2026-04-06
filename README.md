@@ -1,7 +1,7 @@
 # Smoothie
 
 <p align="center">
-  <img src="banner.svg" alt="Smoothie — multi-model review for Claude Code" width="100%">
+  <img src="banner-v2.svg" alt="Smoothie — multi-model review for Claude Code" width="100%">
 </p>
 
 Multi-model review plugin for Claude Code. Sends your problem or plan to multiple AI models simultaneously, then Claude judges all responses and serves you one blended result.
