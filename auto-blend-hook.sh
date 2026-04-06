@@ -76,7 +76,16 @@ CONTEXT="🧃 Smoothie auto-blend results — multiple models reviewed this plan
 
 $BLEND_RESULTS
 
-Revise the plan above based on this feedback. Incorporate valid suggestions, discard irrelevant ones. Present the improved plan to the user."
+IMPORTANT — You must do TWO things:
+
+1. FIRST, show a brief Smoothie summary to the user so they know the blend ran. Format it like:
+
+🧃 Smoothie reviewed this plan (N models):
+  ModelName — one-line summary of their key feedback
+  ModelName — one-line summary of their key feedback
+  (skip models that returned errors or empty responses)
+
+2. THEN revise the plan incorporating valid suggestions. Discard irrelevant ones."
 
 # Return: allow ExitPlanMode but inject blend results
 node -e "

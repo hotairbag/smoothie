@@ -73,11 +73,20 @@ if [ -z "$BLEND_RESULTS" ]; then
 fi
 
 # Build the additionalContext string
-CONTEXT="Smoothie PR review — multiple models reviewed this diff:
+CONTEXT="🧃 Smoothie PR review — multiple models reviewed this diff:
 
 $BLEND_RESULTS
 
-Consider this feedback. If there are valid issues, revise the PR description to note them or fix the code before creating the PR."
+IMPORTANT — You must do TWO things:
+
+1. FIRST, show a brief Smoothie summary so the user knows the review ran:
+
+🧃 Smoothie reviewed this PR (N models):
+  ModelName — one-line key finding
+  ModelName — one-line key finding
+  (skip models that errored or returned empty)
+
+2. THEN address any valid issues — fix the code or note them in the PR description."
 
 # Return: allow Bash but inject blend results
 node -e "

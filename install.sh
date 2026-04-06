@@ -268,7 +268,7 @@ if (!preExists) {
     hooks: [{
       type: "command",
       command: "bash $SCRIPT_DIR/auto-blend-hook.sh",
-      timeout: 300
+      timeout: 600
     }]
   });
 }
@@ -281,7 +281,7 @@ if (!bashHookExists) {
     hooks: [{
       type: "command",
       command: "bash $SCRIPT_DIR/pr-blend-hook.sh",
-      timeout: 300
+      timeout: 600
     }]
   });
 }
