@@ -69,7 +69,7 @@ loadEnv();
 
 async function queryCodex(prompt: string): Promise<ModelResult> {
   try {
-    const { stdout } = await execFile('codex', ['--full-auto', '-q', prompt], {
+    const { stdout } = await execFile('codex', ['exec', prompt], {
       timeout: 90_000,
     });
     return { model: 'Codex', response: stdout };
