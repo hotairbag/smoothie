@@ -275,12 +275,8 @@ case "$1" in
     show_help
     ;;
   "")
-    # No args: install if first time, help if already set up
-    if [ ! -f "$CONFIG" ]; then
-      bash "$INSTALL_DIR/install.sh"
-    else
-      show_help
-    fi
+    # No args: always run installer
+    bash "$INSTALL_DIR/install.sh"
     ;;
   *)
     echo "  Unknown command: $1"
