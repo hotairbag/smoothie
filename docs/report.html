@@ -31,7 +31,8 @@
     .model-bar { width: 60px; height: 6px; background: #21262d; border-radius: 3px; margin-left: 12px; overflow: hidden; }
     .model-bar-fill { height: 100%; background: #3fb950; border-radius: 3px; }
     .actions { text-align: center; }
-    .share-btn { background: #21262d; border: 1px solid #30363d; border-radius: 8px; padding: 10px 20px; color: #f0f6fc; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+    .actions { display: flex; gap: 10px; }
+    .share-btn { flex: 1; background: #21262d; border: 1px solid #30363d; border-radius: 8px; padding: 10px 16px; color: #f0f6fc; font-size: 13px; cursor: pointer; transition: all 0.2s; }
     .share-btn:hover { background: #30363d; border-color: #484f58; }
     .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #484f58; }
     .footer a { color: #8b949e; text-decoration: none; }
@@ -50,6 +51,7 @@
     </div>
     <div class="models" id="model-list"></div>
     <div class="actions">
+      <button class="share-btn" onclick="downloadImage()">📸 Save image</button>
       <button class="share-btn" onclick="copyTweet()">📋 Copy tweet</button>
     </div>
     <div class="footer">
@@ -57,6 +59,7 @@
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script>
     const params = new URLSearchParams(window.location.search);
     const models = (params.get('models') || '').split(',').filter(Boolean);
@@ -84,6 +87,26 @@
       `;
       list.appendChild(row);
     });
+
+    function downloadImage() {
+      const card = document.getElementById('card');
+      const btn = document.querySelector('.share-btn');
+      btn.textContent = '...';
+      html2canvas(card, {
+        backgroundColor: '#0d1117',
+        scale: 2,
+        useCORS: true,
+      }).then(canvas => {
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = 'smoothie-report.png';
+        a.click();
+        btn.textContent = '✓ Saved!';
+        setTimeout(() => btn.textContent = '📸 Save image', 2000);
+      }).catch(() => {
+        btn.textContent = '📸 Save image';
+      });
+    }
 
     function copyTweet() {
       const text = `🧃 Just used Smoothie to review my ${type.toLowerCase()} across ${models.length} AI models in ${Math.max(...times).toFixed(1)}s. ${suggestions} suggestions incorporated automatically.\n\nhttps://hotairbag.github.io/smoothie`;
