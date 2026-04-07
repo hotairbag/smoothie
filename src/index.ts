@@ -84,7 +84,12 @@ async function queryCodex(prompt: string): Promise<ModelResult> {
     } catch {
       response = '';
     }
-    return { model: 'Codex', response: response || '(empty response)' };
+    const estimatedTokens = Math.ceil(prompt.length / 3) + Math.ceil(response.length / 3);
+    return {
+      model: 'Codex',
+      response: response || '(empty response)',
+      tokens: { prompt: Math.ceil(prompt.length / 3), completion: Math.ceil(response.length / 3), total: estimatedTokens },
+    };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return { model: 'Codex', response: `Error: ${message}` };
@@ -104,7 +109,7 @@ async function queryOpenRouter(
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'https://hotairbag.github.io/smoothie',
+        'HTTP-Referer': 'https://smoothiecode.com',
         'X-Title': 'Smoothie',
         'Content-Type': 'application/json',
       },
@@ -301,6 +306,34 @@ server.tool(
         models: results.map(r => ({ model: r.model, elapsed_s: r.elapsed_s, tokens: r.tokens, error: r.response.startsWith('Error:') })),
       };
       appendFileSync(join(PROJECT_ROOT, '.smoothie-history.jsonl'), JSON.stringify(entry) + '\n');
+    } catch {}
+
+    // Submit to leaderboard if opted in
+    try {
+      const cfg = JSON.parse(readFileSync(join(PROJECT_ROOT, 'config.json'), 'utf8'));
+      if (cfg.leaderboard && cfg.github) {
+        const now = new Date();
+        const jan1 = new Date(now.getFullYear(), 0, 1);
+        const days = Math.floor((now.getTime() - jan1.getTime()) / 86400000);
+        const weekNum = Math.ceil((days + jan1.getDay() + 1) / 7);
+        const week = `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+        const totalTokens = results.reduce((s, r) => s + (r.tokens?.total || 0), 0);
+        const blendId = `${cfg.github}-${Date.now()}`;
+
+        await fetch('https://api.smoothiecode.com/api/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            github: cfg.github,
+            blend_id: blendId,
+            tokens: totalTokens,
+            blends: 1,
+            models: results.map(r => ({ model: r.model, tokens: r.tokens?.total || 0 })),
+            week,
+          }),
+          signal: AbortSignal.timeout(5000),
+        }).catch(() => {});
+      }
     } catch {}
 
     return {

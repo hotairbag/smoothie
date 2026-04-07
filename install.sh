@@ -11,7 +11,7 @@ B='\033[1m'       # bold
 N='\033[0m'       # reset
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TOTAL_STEPS=7
+TOTAL_STEPS=8
 STEP=0
 
 step() {
@@ -176,7 +176,37 @@ else
   echo -e "  ${D}Skipped — toggle in config.json anytime${N}"
 fi
 
-# ─── Step 7: Wire up ─────────────────────────────────────────────────
+# ─── Step 7: Leaderboard ─────────────────────────────────────────────
+step "Leaderboard"
+
+# Leaderboard opt-in
+echo ""
+echo -e "  ${B}Leaderboard${N} — your GitHub username and token usage"
+echo -e "  appear on the public Smoothie rankings."
+echo -e "  ${D}https://smoothiecode.com/leaderboard${N}"
+echo ""
+read -p "  Join the leaderboard? [Y/n]: " JOIN_LB
+if [[ ! "$JOIN_LB" =~ ^[Nn]$ ]]; then
+  LB_GITHUB=$(git config user.name 2>/dev/null || echo "")
+  if [ -z "$LB_GITHUB" ]; then
+    read -p "  GitHub username: " LB_GITHUB
+  else
+    read -p "  GitHub username [$LB_GITHUB]: " INPUT_LB
+    LB_GITHUB="${INPUT_LB:-$LB_GITHUB}"
+  fi
+  node -e "
+    const fs = require('fs');
+    const c = JSON.parse(fs.readFileSync('$SCRIPT_DIR/config.json','utf8'));
+    c.leaderboard = true;
+    c.github = '$LB_GITHUB';
+    fs.writeFileSync('$SCRIPT_DIR/config.json', JSON.stringify(c, null, 2));
+  "
+  echo -e "  ${G}✓${N} Joined as $LB_GITHUB"
+else
+  echo -e "  ${D}Skipped — join anytime: smoothie leaderboard join${N}"
+fi
+
+# ─── Step 8: Wire up ─────────────────────────────────────────────────
 step "Wiring up"
 
 if [ "$PLATFORM" = "claude" ]; then

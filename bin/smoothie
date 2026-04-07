@@ -94,12 +94,40 @@ case "$1" in
         const mt = sorted.map(s => s[1].tokens).join(',');
         const mc = sorted.map(s => s[1].calls).join(',');
         const ma = sorted.map(s => (s[1].totalTime / s[1].calls).toFixed(1)).join(',');
-        const url = 'https://hotairbag.github.io/smoothie/stats.html?blends=' + totalBlends + '&tokens=' + totalTokens + '&time=' + totalTime.toFixed(0) + '&rate=' + rate + '&names=' + encodeURIComponent(names) + '&mt=' + encodeURIComponent(mt) + '&mc=' + encodeURIComponent(mc) + '&ma=' + encodeURIComponent(ma);
-        console.log('');
-        console.log('  ' + url);
-        console.log('');
-        console.log('  Open in browser to save as image or copy tweet');
-        console.log('');
+        const params = 'blends=' + totalBlends + '&tokens=' + totalTokens + '&time=' + totalTime.toFixed(0) + '&rate=' + rate + '&names=' + encodeURIComponent(names) + '&mt=' + encodeURIComponent(mt) + '&mc=' + encodeURIComponent(mc) + '&ma=' + encodeURIComponent(ma);
+
+        // Try to create short URL via API
+        const https = require('https');
+        const postData = JSON.stringify({ type: 'stats', data: params });
+        const req = https.request({
+          hostname: 'api.smoothiecode.com',
+          path: '/api/share',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Content-Length': postData.length },
+          timeout: 5000,
+        }, (res) => {
+          let body = '';
+          res.on('data', c => body += c);
+          res.on('end', () => {
+            try {
+              const shortUrl = JSON.parse(body).url;
+              if (shortUrl) { console.log('  ' + shortUrl); }
+              else { console.log('  https://smoothiecode.com/stats?' + params); }
+            } catch { console.log('  https://smoothiecode.com/stats?' + params); }
+            console.log('');
+            console.log('  Open in browser to save as image or copy tweet');
+            console.log('');
+          });
+        });
+        req.on('error', () => {
+          console.log('  https://smoothiecode.com/stats?' + params);
+          console.log('');
+          console.log('  Open in browser to save as image or copy tweet');
+          console.log('');
+        });
+        req.on('timeout', () => { req.destroy(); });
+        req.write(postData);
+        req.end();
       } else {
         const recent = lines.slice(-5).reverse();
         console.log('  Recent blends:');
@@ -115,22 +143,107 @@ case "$1" in
     ;;
   share)
     shift
-    # Build URL from last blend results if available
     if [ -f "$SCRIPT_DIR/.last-blend.json" ]; then
-      SHARE_URL=$(node -e "
+      PARAMS=$(node -e "
         const r = JSON.parse(require('fs').readFileSync('$SCRIPT_DIR/.last-blend.json','utf8'));
         const models = r.results.map(m => m.model).join(',');
         const times = r.results.map(m => m.elapsed_s || 0).join(',');
         const tokens = r.results.map(m => m.tokens?.total || 0).join(',');
-        const url = 'https://hotairbag.github.io/smoothie/report.html?models=' + encodeURIComponent(models) + '&times=' + encodeURIComponent(times) + '&tokens=' + encodeURIComponent(tokens) + '&type=plan&suggestions=0';
-        console.log(url);
+        console.log('models=' + encodeURIComponent(models) + '&times=' + encodeURIComponent(times) + '&tokens=' + encodeURIComponent(tokens) + '&type=plan&suggestions=0');
       ")
-      echo "  $SHARE_URL"
+      # Try to create short URL
+      SHORT=$(curl -s -X POST "https://api.smoothiecode.com/api/share" \
+        -H "Content-Type: application/json" \
+        -d "{\"type\":\"report\",\"data\":\"$PARAMS\"}" 2>/dev/null | node -e "
+          let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+            try{console.log(JSON.parse(d).url)}catch{console.log('')}
+          })
+        " 2>/dev/null)
+      if [ -n "$SHORT" ]; then
+        echo "  $SHORT"
+      else
+        echo "  https://smoothiecode.com/report?$PARAMS"
+      fi
       echo ""
       echo "  Open in browser or copy to share"
     else
       echo "  No recent blend found. Run a blend first."
     fi
+    ;;
+  leaderboard)
+    LEADERBOARD_API="https://api.smoothiecode.com"
+    case "$2" in
+      join)
+        GITHUB=$(git config user.name 2>/dev/null || echo "")
+        if [ -z "$GITHUB" ]; then
+          read -p "  GitHub username: " GITHUB
+        else
+          read -p "  GitHub username [$GITHUB]: " INPUT_GH
+          GITHUB="${INPUT_GH:-$GITHUB}"
+        fi
+        node -e "
+          const fs = require('fs');
+          const c = JSON.parse(fs.readFileSync('$CONFIG','utf8'));
+          c.leaderboard = true;
+          c.github = '$GITHUB';
+          fs.writeFileSync('$CONFIG', JSON.stringify(c, null, 2));
+        "
+        echo "  ✓ Joined as $GITHUB"
+        echo "  Your stats will appear on the leaderboard after your next blend"
+        ;;
+      leave)
+        node -e "
+          const fs = require('fs');
+          const c = JSON.parse(fs.readFileSync('$CONFIG','utf8'));
+          const github = c.github || '';
+          c.leaderboard = false;
+          fs.writeFileSync('$CONFIG', JSON.stringify(c, null, 2));
+          console.log(github);
+        " | xargs -I{} curl -s -X DELETE "$LEADERBOARD_API/api/user/{}" > /dev/null 2>&1
+        echo "  ✓ Left the leaderboard (remote data deleted)"
+        ;;
+      profile)
+        read -p "  Twitter handle (e.g. @hotairbag): " TWITTER
+        GITHUB=$(node -e "const c=JSON.parse(require('fs').readFileSync('$CONFIG','utf8'));console.log(c.github||'')")
+        if [ -z "$GITHUB" ]; then
+          echo "  Join the leaderboard first: smoothie leaderboard join"
+        else
+          curl -s -X POST "$LEADERBOARD_API/api/profile" \
+            -H "Content-Type: application/json" \
+            -d "{\"github\":\"$GITHUB\",\"twitter\":\"$TWITTER\"}" > /dev/null 2>&1
+          echo "  ✓ Twitter set to $TWITTER"
+        fi
+        ;;
+      *)
+        # Show leaderboard
+        RESULT=$(curl -s "$LEADERBOARD_API/api/leaderboard" 2>/dev/null)
+        if [ -z "$RESULT" ]; then
+          echo "  Could not reach leaderboard. Check your connection."
+        else
+          node -e "
+            const d = JSON.parse(\`$RESULT\`);
+            if (!d.rankings || d.rankings.length === 0) {
+              console.log('  No blends this week yet.');
+              process.exit(0);
+            }
+            console.log('');
+            console.log('  🧃 Smoothie Leaderboard — ' + d.week);
+            console.log('  ──────────────────────────────────────────');
+            const medals = ['🥇','🥈','🥉'];
+            for (let i = 0; i < d.rankings.length && i < 20; i++) {
+              const r = d.rankings[i];
+              const medal = medals[i] || '  ';
+              const tokens = r.total_tokens >= 1000 ? (r.total_tokens/1000).toFixed(1)+'k' : r.total_tokens;
+              const tw = r.twitter ? ' @'+r.twitter : '';
+              console.log('  ' + medal + ' #' + (i+1) + '  ' + r.github.padEnd(20) + tokens.padStart(8) + ' tokens  ' + r.total_blends + ' blends' + tw);
+            }
+            console.log('');
+            console.log('  https://smoothiecode.com/leaderboard');
+            console.log('');
+          "
+        fi
+        ;;
+    esac
     ;;
   help|--help|-h|"")
     echo ""
@@ -147,6 +260,11 @@ case "$1" in
     echo ""
     echo "  smoothie blend \"<prompt>\"         Run a blend from terminal"
     echo "  smoothie blend --deep \"<prompt>\"  Deep blend with full context"
+    echo ""
+    echo "  smoothie leaderboard         View weekly rankings"
+    echo "  smoothie leaderboard join    Join the leaderboard"
+    echo "  smoothie leaderboard leave   Leave and delete data"
+    echo "  smoothie leaderboard profile Set Twitter handle"
     echo ""
     echo "  smoothie stats               Usage stats and history"
     echo "  smoothie stats --share       Shareable stats page"

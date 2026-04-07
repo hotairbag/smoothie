@@ -66,6 +66,30 @@ Provide concise, actionable feedback. Focus only on things that should change."
 # Run the blend (progress shows on stderr, results on stdout)
 BLEND_RESULTS=$(echo "$REVIEW_PROMPT" | node "$SCRIPT_DIR/dist/blend-cli.js" 2>/dev/stderr)
 
+# Generate share link (metadata only, no raw content)
+SHARE_URL=""
+SHARE_PARAMS=$(echo "$BLEND_RESULTS" | node -e "
+  let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+    try {
+      const r=JSON.parse(d);
+      const models=r.results.map(m=>m.model).join(',');
+      const times=r.results.map(m=>m.elapsed_s||0).join(',');
+      const tokens=r.results.map(m=>(m.tokens&&m.tokens.total)||0).join(',');
+      console.log('models='+encodeURIComponent(models)+'&times='+encodeURIComponent(times)+'&tokens='+encodeURIComponent(tokens)+'&type=plan');
+    } catch { console.log(''); }
+  });
+" 2>/dev/null)
+
+if [ -n "$SHARE_PARAMS" ]; then
+  SHARE_URL=$(curl -s --max-time 5 --connect-timeout 3 -X POST "https://api.smoothiecode.com/api/share" \
+    -H "Content-Type: application/json" \
+    -d "{\"type\":\"report\",\"data\":\"$SHARE_PARAMS\"}" 2>/dev/null | node -e "
+      let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+        try{console.log(JSON.parse(d).url)}catch{console.log('')}
+      });
+    " 2>/dev/null) || true
+fi
+
 if [ -z "$BLEND_RESULTS" ]; then
   echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
   exit 0
@@ -88,7 +112,9 @@ IMPORTANT — You must do TWO things:
 | ModelName | 8.2s | 2,104 | generic | one-line summary |
 (skip errored/empty models. Verdict = useful, generic, or irrelevant)
 
-2. THEN proceed with implementation as planned, incorporating valid Smoothie suggestions as you go. Do NOT stop to revise — start coding immediately."
+2. THEN proceed with implementation as planned, incorporating valid Smoothie suggestions as you go. Do NOT stop to revise — start coding immediately.
+$([ -n "$SHARE_URL" ] && echo "
+Share: $SHARE_URL")"
 
 # Return: allow ExitPlanMode but inject blend results
 node -e "

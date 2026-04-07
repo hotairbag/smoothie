@@ -13,5 +13,7 @@
       "label": "Z.ai: GLM 5V Turbo"
     }
   ],
-  "auto_blend": true
+  "auto_blend": true,
+  "leaderboard": true,
+  "github": "hotairbag"
 }
