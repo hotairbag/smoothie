@@ -14,6 +14,10 @@ const PROJECT_ROOT = join(__dirname, '..');
 const SMOOTHIE_HOME = join(homedir(), '.smoothie');
 try { mkdirSync(SMOOTHIE_HOME, { recursive: true }); } catch {}
 
+// Read version from package.json
+let CURRENT_VERSION = '0.0.0';
+try { CURRENT_VERSION = JSON.parse(readFileSync(join(PROJECT_ROOT, 'package.json'), 'utf8')).version; } catch {}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -339,8 +343,29 @@ server.tool(
       }
     } catch {}
 
+    // Weekly update check (non-blocking)
+    let updateNote = '';
+    try {
+      const checkFile = join(SMOOTHIE_HOME, '.update-check');
+      let shouldCheck = true;
+      try {
+        const last = readFileSync(checkFile, 'utf8').trim();
+        if (Date.now() - parseInt(last) < 7 * 24 * 60 * 60 * 1000) shouldCheck = false;
+      } catch {}
+      if (shouldCheck) {
+        const { writeFileSync: wfs } = await import('fs');
+        wfs(checkFile, String(Date.now()));
+        const res = await fetch('https://registry.npmjs.org/smoothie-code/latest', { signal: AbortSignal.timeout(3000) });
+        const { version: latest } = (await res.json()) as { version: string };
+        const current = CURRENT_VERSION;
+        if (latest && latest !== current) {
+          updateNote = `\n\n⬆ Smoothie update available: ${current} → ${latest} — run: npx smoothie-code`;
+        }
+      }
+    } catch {}
+
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify({ results }, null, 2) }],
+      content: [{ type: 'text' as const, text: JSON.stringify({ results }, null, 2) + updateNote }],
     };
   },
 );
