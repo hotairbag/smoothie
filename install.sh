@@ -104,13 +104,13 @@ if [ "$PLATFORM" != "codex" ]; then
   step "Setting up Codex ${D}(optional)${N}"
 
   echo ""
-  echo -e "  ${D}Codex adds OpenAI's coding model to the blend.${N}"
+  echo -e "  ${D}Codex adds OpenAI's coding model to the review.${N}"
   echo -e "  ${D}Requires a ChatGPT account. Skip if you only want OpenRouter.${N}"
   echo ""
   read -p "  Set up Codex? [Y/n]: " SETUP_CODEX
 
   if [[ "$SETUP_CODEX" =~ ^[Nn]$ ]]; then
-    echo -e "  ${D}Skipped — blend will use OpenRouter models only${N}"
+    echo -e "  ${D}Skipped — review will use OpenRouter models only${N}"
   else
     if ! command -v codex &>/dev/null; then
       npm install -g @openai/codex 2>/dev/null &
@@ -156,24 +156,24 @@ step "Choosing models"
 echo ""
 node "$SCRIPT_DIR/dist/select-models.js" "$OPENROUTER_KEY" "$SCRIPT_DIR/config.json"
 
-# ─── Step 6: Auto-blend ──────────────────────────────────────────────
+# ─── Step 6: Auto-review ──────────────────────────────────────────────
 step "Configuring hooks"
 
-chmod +x "$SCRIPT_DIR/plan-hook.sh" "$SCRIPT_DIR/auto-blend-hook.sh" "$SCRIPT_DIR/pr-blend-hook.sh"
+chmod +x "$SCRIPT_DIR/plan-hook.sh" "$SCRIPT_DIR/auto-review-hook.sh" "$SCRIPT_DIR/pr-review-hook.sh"
 
 echo ""
-echo -e "  ${B}Auto-blend${N} reviews every plan with all models before"
+echo -e "  ${B}Auto-review${N} reviews every plan with all models before"
 echo -e "  you approve. Adds 30-90s per plan."
 echo ""
-read -p "  Enable auto-blend? [y/N]: " AUTO_BLEND
+read -p "  Enable auto-review? [y/N]: " AUTO_BLEND
 if [[ "$AUTO_BLEND" =~ ^[Yy]$ ]]; then
   node -e "
     const fs = require('fs');
     const c = JSON.parse(fs.readFileSync('$SCRIPT_DIR/config.json','utf8'));
-    c.auto_blend = true;
+    c.auto_review = true;
     fs.writeFileSync('$SCRIPT_DIR/config.json', JSON.stringify(c, null, 2));
   "
-  echo -e "  ${G}✓${N} Auto-blend on"
+  echo -e "  ${G}✓${N} Auto-review on"
 else
   echo -e "  ${D}Skipped — toggle in config.json anytime${N}"
 fi
@@ -236,7 +236,7 @@ The user has provided this context/problem:
 $ARGUMENTS
 
 **Step 1 — Blend**
-Call `smoothie_blend` with the user's prompt. The MCP server queries all
+Call `smoothie_review` with the user's prompt. The MCP server queries all
 models in parallel and shows live progress in the terminal. Wait for it to return.
 
 **Step 2 — Judge and respond**
@@ -261,7 +261,7 @@ $ARGUMENTS
 Run `git diff main...HEAD` to get the full branch diff.
 
 **Step 2 — Blend**
-Call `smoothie_blend` with a prompt asking models to review the diff for:
+Call `smoothie_review` with a prompt asking models to review the diff for:
 - Bugs, logic errors, edge cases
 - Security vulnerabilities
 - Performance issues
@@ -299,20 +299,20 @@ if (!preExists) {
     matcher: "ExitPlanMode",
     hooks: [{
       type: "command",
-      command: "bash $SCRIPT_DIR/auto-blend-hook.sh",
+      command: "bash $SCRIPT_DIR/auto-review-hook.sh",
       timeout: 600
     }]
   });
 }
 
 // Add PR review hook for Bash commands
-const bashHookExists = s.hooks.PreToolUse.some(h => h.matcher === 'Bash' && h.hooks?.[0]?.command?.includes('pr-blend-hook'));
+const bashHookExists = s.hooks.PreToolUse.some(h => h.matcher === 'Bash' && h.hooks?.[0]?.command?.includes('pr-review-hook'));
 if (!bashHookExists) {
   s.hooks.PreToolUse.push({
     matcher: "Bash",
     hooks: [{
       type: "command",
-      command: "bash $SCRIPT_DIR/pr-blend-hook.sh",
+      command: "bash $SCRIPT_DIR/pr-review-hook.sh",
       timeout: 600
     }]
   });
@@ -354,14 +354,14 @@ if [ "$PLATFORM" = "gemini" ]; then
 
   # Gemini slash commands (.toml)
   cat > "$HOME/.gemini/commands/smoothie.toml" << 'TOML'
-description = "Blend this problem across multiple AI models. Gemini judges."
+description = "Review this problem across multiple AI models. Gemini judges."
 
 prompt = """
 You are running Smoothie — a multi-model review session.
 
 {{args}}
 
-Step 1 — Call smoothie_blend with the problem text. Wait for results.
+Step 1 — Call smoothie_review with the problem text. Wait for results.
 
 Step 2 — You have responses from all models. Do NOT show raw outputs.
 - If reviewing a problem: give the answer. Mention conflicts in one sentence.
@@ -381,14 +381,14 @@ You are running Smoothie PR Review.
 {{args}}
 
 Step 1 — Run git diff main...HEAD to get the branch diff.
-Step 2 — Call smoothie_blend asking models to review the diff for bugs, security, performance.
+Step 2 — Call smoothie_review asking models to review the diff for bugs, security, performance.
 Step 3 — Summarize findings with file:line references. Be direct.
 """
 TOML
   echo -e "  ${G}✓${N} Slash command /smoothie-pr (Gemini)"
 
-  # Register auto-blend hook for Gemini CLI
-  chmod +x "$SCRIPT_DIR/gemini-blend-hook.sh"
+  # Register auto-review hook for Gemini CLI
+  chmod +x "$SCRIPT_DIR/gemini-review-hook.sh"
   GEMINI_SETTINGS="$HOME/.gemini/settings.json"
   GEMINI_EXISTING="{}"
   [ -f "$GEMINI_SETTINGS" ] && GEMINI_EXISTING=$(cat "$GEMINI_SETTINGS")
@@ -405,14 +405,14 @@ TOML
         matcher: 'exit_plan_mode',
         hooks: [{
           type: 'command',
-          command: 'bash $SCRIPT_DIR/gemini-blend-hook.sh',
+          command: 'bash $SCRIPT_DIR/gemini-review-hook.sh',
           timeout: 600
         }]
       });
     }
     fs.writeFileSync('$GEMINI_SETTINGS', JSON.stringify(s, null, 2));
   "
-  echo -e "  ${G}✓${N} Auto-blend hook registered (BeforeTool/exit_plan_mode)"
+  echo -e "  ${G}✓${N} Auto-review hook registered (BeforeTool/exit_plan_mode)"
 fi
 
 if [ "$PLATFORM" = "cursor" ]; then
@@ -435,7 +435,7 @@ if [ "$PLATFORM" = "cursor" ]; then
   "
   echo -e "  ${G}✓${N} Cursor MCP server registered"
 
-  # Create Cursor Rule for auto-blend (only if auto-blend is enabled)
+  # Create Cursor Rule for auto-review (only if auto-review is enabled)
   if [[ "$AUTO_BLEND" =~ ^[Yy]$ ]]; then
     mkdir -p "$HOME/.cursor/rules"
     cat > "$HOME/.cursor/rules/smoothie.mdc" << 'CURSORRULE'
@@ -445,16 +445,16 @@ alwaysApply: true
 ---
 
 Before proposing or implementing any plan that involves significant code changes,
-call the `smoothie_blend` MCP tool with a description of what you're about to do.
+call the `smoothie_review` MCP tool with a description of what you're about to do.
 
 Wait for results, then:
 1. Show a summary table: Model | Time | Tokens | Verdict | Key feedback
 2. Incorporate valid suggestions into your plan
 3. Proceed with implementation
 
-Skip the blend for trivial changes (typos, single-line fixes, config tweaks).
+Skip the review for trivial changes (typos, single-line fixes, config tweaks).
 CURSORRULE
-    echo -e "  ${G}✓${N} Cursor Rule created (auto-blend)"
+    echo -e "  ${G}✓${N} Cursor Rule created (auto-review)"
   fi
 fi
 
@@ -478,16 +478,16 @@ echo ""
 if [ "$PLATFORM" = "cursor" ]; then
   echo -e "  ${G}${B}Done!${N} Restart Cursor, then:"
   echo ""
-  echo -e "  ${D}Ask Cursor to plan something — it calls smoothie_blend via MCP${N}"
+  echo -e "  ${D}Ask Cursor to plan something — it calls smoothie_review via MCP${N}"
   if [[ "$AUTO_BLEND" =~ ^[Yy]$ ]]; then
-    echo -e "  ${C}auto-blend${N}                  ${G}on${N} (via Cursor Rule)"
+    echo -e "  ${C}auto-review${N}                  ${G}on${N} (via Cursor Rule)"
   fi
 else
   echo -e "  ${G}${B}Done!${N} Restart Claude Code, then:"
   echo ""
-  echo -e "  ${C}/smoothie${N} ${D}<your problem>${N}    blend in Claude Code"
+  echo -e "  ${C}/smoothie${N} ${D}<your problem>${N}    review in Claude Code"
   if [[ "$AUTO_BLEND" =~ ^[Yy]$ ]]; then
-    echo -e "  ${C}auto-blend${N}                  ${G}on${N} for all plans"
+    echo -e "  ${C}auto-review${N}                  ${G}on${N} for all plans"
   fi
 fi
 echo -e "  ${C}smoothie models${N}             manage models"

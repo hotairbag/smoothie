@@ -1,6 +1,6 @@
 # Smoothie
 
-Multi-model code review for AI coding agents. Query Codex, Gemini, Grok, DeepSeek and more in parallel — get one blended answer.
+Multi-model code review for AI coding agents. Query Codex, Gemini, Grok, DeepSeek and more in parallel — get one reviewed answer.
 
 **[Website](https://smoothiecode.com)** · **[Docs](https://smoothiecode.com/docs)** · **[Leaderboard](https://smoothiecode.com/leaderboard)** · **[@smoothie_code](https://x.com/smoothie_code)**
 
@@ -14,10 +14,10 @@ Works with **Claude Code**, **Gemini CLI**, **Codex CLI**, and **Cursor**.
 
 ## Features
 
-- `/smoothie <problem>` — blend across all models, get one answer
+- `/smoothie <problem>` — review across all models, get one answer
 - `/smoothie-pr` — multi-model PR review
 - `/smoothie --deep` — full context mode with cost estimate
-- **Auto-blend** — plans and PRs reviewed automatically before you approve
+- **Auto-review** — plans and PRs reviewed automatically before you approve
 - **Leaderboard** — weekly token rankings at [smoothiecode.com/leaderboard](https://smoothiecode.com/leaderboard)
 - **Stats & sharing** — `smoothie stats`, `smoothie share`
 
@@ -27,17 +27,17 @@ Works with **Claude Code**, **Gemini CLI**, **Codex CLI**, and **Cursor**.
 |---------|------------|-----------|-----------|--------|
 | MCP server | ✓ | ✓ | ✓ (STDIO) | ✓ |
 | Slash commands | ✓ | ✓ | — | — |
-| Auto-blend hooks | ✓ | ✓ | ⚠ experimental | Rule-based |
+| Auto-review hooks | ✓ | ✓ | ⚠ experimental | Rule-based |
 | `/smoothie` | ✓ | ✓ | — | — |
-| `smoothie blend` CLI | ✓ | ✓ | ✓ | ✓ |
+| `smoothie review` CLI | ✓ | ✓ | ✓ | ✓ |
 
 ## CLI
 
 ```bash
 smoothie models              # pick models
-smoothie auto on|off         # toggle auto-blend
-smoothie blend "<prompt>"    # run a blend
-smoothie blend --deep "..."  # deep blend with full context
+smoothie auto on|off         # toggle auto-review
+smoothie review "<prompt>"    # run a review
+smoothie review --deep "..."  # deep review with full context
 smoothie stats               # usage stats
 smoothie share               # share last report
 smoothie leaderboard         # view rankings
@@ -49,11 +49,11 @@ smoothie help                # all commands
 ```
 Your IDE (Claude/Gemini/Cursor)
     |
-    |-- /smoothie or auto-blend hook
-    \-- MCP Server → smoothie_blend(prompt)
+    |-- /smoothie or auto-review hook
+    \-- MCP Server → smoothie_review(prompt)
             |-- Queries all models in parallel
             |-- Returns responses to the judge AI
-            \-- Judge gives you one blended answer
+            \-- Judge gives you one reviewed answer
 ```
 
 ## Links

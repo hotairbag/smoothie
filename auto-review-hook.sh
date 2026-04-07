@@ -1,10 +1,9 @@
 #!/bin/bash
 #
-# pr-blend-hook.sh — PreToolUse hook for Bash commands
+# auto-review-hook.sh — PreToolUse hook for ExitPlanMode
 #
-# Intercepts `gh pr create` commands, runs Smoothie blend on the
-# branch diff, and injects review results so Claude can revise
-# the PR description before creating it.
+# Intercepts plan approval, runs Smoothie blend on the plan,
+# and injects results back so Claude revises before you see it.
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,60 +11,60 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Read hook input from stdin
 INPUT=$(cat)
 
-# Check if auto-blend is enabled in config
-AUTO_ENABLED=$(node -e "
-  try {
-    const c = JSON.parse(require('fs').readFileSync('$SCRIPT_DIR/config.json','utf8'));
-    console.log(c.auto_blend === true ? 'true' : 'false');
-  } catch(e) { console.log('false'); }
-" 2>/dev/null)
+# Check if auto-review is enabled in config
+if [ -f "$SCRIPT_DIR/config.json" ]; then
+  AUTO_ENABLED=$(node -e "
+    try {
+      const c = JSON.parse(require('fs').readFileSync('$SCRIPT_DIR/config.json','utf8'));
+      console.log(c.auto_review === true ? 'true' : 'false');
+    } catch(e) { console.log('false'); }
+  " 2>/dev/null)
 
-if [ "$AUTO_ENABLED" != "true" ]; then
-  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
-  exit 0
+  if [ "$AUTO_ENABLED" != "true" ]; then
+    # Auto-blend disabled — allow ExitPlanMode without intervention
+    echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
+    exit 0
+  fi
 fi
 
-# Check if this is a gh pr create command
-COMMAND=$(echo "$INPUT" | python3 -c "
+# Extract transcript path
+TRANSCRIPT_PATH=$(echo "$INPUT" | python3 -c "
 import sys, json
 try:
   d = json.load(sys.stdin)
-  print(d.get('tool_input', {}).get('command', ''))
+  print(d.get('transcript_path', ''))
 except:
   print('')
 " 2>/dev/null)
 
-if ! echo "$COMMAND" | grep -q "gh pr create"; then
+if [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ]; then
   echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
   exit 0
 fi
 
-# Extract cwd from hook input
-CWD=$(echo "$INPUT" | python3 -c "
-import sys, json
-try:
-  d = json.load(sys.stdin)
-  print(d.get('cwd', ''))
-except:
-  print('')
-" 2>/dev/null)
+# Extract the plan from the last ~4000 chars of the transcript
+PLAN_CONTEXT=$(tail -c 4000 "$TRANSCRIPT_PATH" 2>/dev/null)
 
-# Get the diff
-DIFF=$(cd "$CWD" 2>/dev/null && git diff main...HEAD 2>/dev/null | head -c 4000)
-
-if [ -z "$DIFF" ]; then
+if [ -z "$PLAN_CONTEXT" ]; then
   echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
   exit 0
 fi
 
-# Build review prompt and run blend
-REVIEW_PROMPT="Review this PR diff for bugs, security issues, and improvements:
+# Build the review prompt
+REVIEW_PROMPT="You are reviewing a plan that Claude Code generated. Analyze it for:
+- Missing steps or edge cases
+- Better approaches or optimizations
+- Potential bugs or issues
+- Security concerns
 
-$DIFF
+Here is the plan context (from the conversation transcript):
 
-Provide concise, actionable feedback."
+$PLAN_CONTEXT
 
-BLEND_RESULTS=$(echo "$REVIEW_PROMPT" | node "$SCRIPT_DIR/dist/blend-cli.js" 2>/dev/stderr)
+Provide concise, actionable feedback. Focus only on things that should change."
+
+# Run the blend (progress shows on stderr, results on stdout)
+BLEND_RESULTS=$(echo "$REVIEW_PROMPT" | node "$SCRIPT_DIR/dist/review-cli.js" 2>/dev/stderr)
 
 # Generate share link (metadata only, no raw content)
 SHARE_URL=""
@@ -80,7 +79,7 @@ SHARE_PARAMS=$(echo "$BLEND_RESULTS" | node -e "
       const responded=r.results.filter(m=>!m.response.startsWith('Error:')&&m.response!=='No response content'&&m.response!=='(empty response)').length;
       let github='',judge='Claude Code';
       try{const c=JSON.parse(fs.readFileSync('$SCRIPT_DIR/config.json','utf8'));github=c.github||'';const p=process.env.SMOOTHIE_PLATFORM||'claude';judge={claude:'Claude Code',gemini:'Gemini CLI',codex:'Codex CLI',cursor:'Cursor'}[p]||'Claude Code';}catch{}
-      let params='models='+encodeURIComponent(models)+'&times='+encodeURIComponent(times)+'&tokens='+encodeURIComponent(tokens)+'&type=pr&suggestions='+responded+'&judge='+encodeURIComponent(judge);
+      let params='models='+encodeURIComponent(models)+'&times='+encodeURIComponent(times)+'&tokens='+encodeURIComponent(tokens)+'&type=plan&suggestions='+responded+'&judge='+encodeURIComponent(judge);
       if(github)params+='&user='+encodeURIComponent(github);
       console.log(params);
     } catch { console.log(''); }
@@ -103,7 +102,7 @@ if [ -z "$BLEND_RESULTS" ]; then
 fi
 
 # Build the additionalContext string
-CONTEXT="🧃 Smoothie PR review — multiple models reviewed this diff:
+CONTEXT="🧃 Smoothie auto-review results — multiple models reviewed this plan:
 
 $BLEND_RESULTS
 
@@ -111,25 +110,26 @@ IMPORTANT — You must do TWO things:
 
 1. FIRST, show a Smoothie report table. Use elapsed_s and tokens from each result:
 
-🧃 Smoothie reviewed this PR (N models, Xs total):
+🧃 Smoothie reviewed this plan (N models, Xs total):
 
-| Model | Time | Tokens | Finding |
-|-------|------|--------|---------|
-| ModelName | 3.1s | 1,847 | one-line key finding |
-(skip errored/empty models)
+| Model | Time | Tokens | Verdict | Feedback |
+|-------|------|--------|---------|----------|
+| ModelName | 3.1s | 1,847 | useful | one-line summary |
+| ModelName | 8.2s | 2,104 | generic | one-line summary |
+(skip errored/empty models. Verdict = useful, generic, or irrelevant)
 $([ -n "$SHARE_URL" ] && echo "
 Share this report: $SHARE_URL")
 
-2. THEN address any valid issues — fix the code or note them in the PR description."
+2. THEN proceed with implementation as planned, incorporating valid Smoothie suggestions as you go. Do NOT stop to revise — start coding immediately."
 
-# Return: allow Bash but inject blend results
+# Return: allow ExitPlanMode but inject blend results
 node -e "
   const ctx = $(echo "$CONTEXT" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null);
   console.log(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
       permissionDecision: 'allow',
-      permissionDecisionReason: 'Smoothie PR review completed',
+      permissionDecisionReason: 'Smoothie auto-review completed',
       additionalContext: ctx
     }
   }));

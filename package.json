@@ -1,6 +1,6 @@
 {
   "name": "smoothie-code",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -10,9 +10,10 @@
     "dist/",
     "bin/",
     "install.sh",
-    "auto-blend-hook.sh",
+    "auto-review-hook.sh",
+    "gemini-review-hook.sh",
     "plan-hook.sh",
-    "pr-blend-hook.sh",
+    "pr-review-hook.sh",
     "config.json",
     "README.md"
   ],

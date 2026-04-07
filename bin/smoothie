@@ -19,9 +19,9 @@ case "$1" in
     shift
     node "$INSTALL_DIR/dist/select-models.js" "$@"
     ;;
-  blend)
+  review)
     shift
-    node "$INSTALL_DIR/dist/blend-cli.js" "$@"
+    node "$INSTALL_DIR/dist/review-cli.js" "$@"
     ;;
   auto)
     case "$2" in
@@ -29,28 +29,28 @@ case "$1" in
         node -e "
           const fs = require('fs');
           const c = JSON.parse(fs.readFileSync('$CONFIG','utf8'));
-          c.auto_blend = true;
+          c.auto_review = true;
           fs.writeFileSync('$CONFIG', JSON.stringify(c, null, 2));
         "
-        echo "  ✓ Auto-blend enabled"
+        echo "  ✓ Auto-review enabled"
         ;;
       off)
         node -e "
           const fs = require('fs');
           const c = JSON.parse(fs.readFileSync('$CONFIG','utf8'));
-          c.auto_blend = false;
+          c.auto_review = false;
           fs.writeFileSync('$CONFIG', JSON.stringify(c, null, 2));
         "
-        echo "  ✓ Auto-blend disabled"
+        echo "  ✓ Auto-review disabled"
         ;;
       *)
         ENABLED=$(node -e "
           try {
             const c = JSON.parse(require('fs').readFileSync('$CONFIG','utf8'));
-            console.log(c.auto_blend ? 'on' : 'off');
+            console.log(c.auto_review ? 'on' : 'off');
           } catch(e) { console.log('off'); }
         ")
-        echo "  Auto-blend is $ENABLED"
+        echo "  Auto-review is $ENABLED"
         echo "  Usage: smoothie auto on|off"
         ;;
     esac
@@ -58,7 +58,7 @@ case "$1" in
   stats)
     HISTORY="$SMOOTHIE_HOME/.smoothie-history.jsonl"
     if [ ! -f "$HISTORY" ]; then
-      echo "  No history yet. Run a blend first."
+      echo "  No history yet. Run a review first."
       exit 0
     fi
     node -e "
@@ -114,7 +114,7 @@ case "$1" in
         console.log('');
         console.log('  🧃 Smoothie Stats');
         console.log('  ─────────────────────────────────────────');
-        console.log('  Blends: ' + totalBlends + '  Tokens: ' + totalTokens.toLocaleString() + '  Time: ' + totalTime.toFixed(0) + 's');
+        console.log('  Reviews: ' + totalBlends + '  Tokens: ' + totalTokens.toLocaleString() + '  Time: ' + totalTime.toFixed(0) + 's');
         console.log('  Success rate: ' + successes + '/' + (successes + errors) + ' (' + (successes / (successes + errors) * 100).toFixed(0) + '%)');
         console.log('');
         console.log('  Model                        Calls  Tokens     Avg time  Errors');
@@ -126,7 +126,7 @@ case "$1" in
         console.log('');
 
         const recent = lines.slice(-5).reverse();
-        console.log('  Recent blends:');
+        console.log('  Recent reviews:');
         for (const e of recent) {
           const models = e.models.filter(m => !m.error).map(m => m.model).join(', ');
           const time = Math.max(...e.models.map(m => m.elapsed_s || 0)).toFixed(1);
@@ -139,9 +139,9 @@ case "$1" in
     ;;
   share)
     shift
-    if [ -f "$SMOOTHIE_HOME/.last-blend.json" ]; then
+    if [ -f "$SMOOTHIE_HOME/.last-review.json" ]; then
       PARAMS=$(node -e "
-        const r = JSON.parse(require('fs').readFileSync('$SMOOTHIE_HOME/.last-blend.json','utf8'));
+        const r = JSON.parse(require('fs').readFileSync('$SMOOTHIE_HOME/.last-review.json','utf8'));
         const models = r.results.map(m => m.model).join(',');
         const times = r.results.map(m => m.elapsed_s || 0).join(',');
         const tokens = r.results.map(m => m.tokens?.total || 0).join(',');
@@ -162,7 +162,7 @@ case "$1" in
       echo ""
       echo "  Open in browser or copy to share"
     else
-      echo "  No recent blend found. Run a blend first."
+      echo "  No recent review found. Run a review first."
     fi
     ;;
   leaderboard)
@@ -184,7 +184,7 @@ case "$1" in
           fs.writeFileSync('$CONFIG', JSON.stringify(c, null, 2));
         "
         echo "  ✓ Joined as $GITHUB"
-        echo "  Your stats will appear on the leaderboard after your next blend"
+        echo "  Your stats will appear on the leaderboard after your next review"
         ;;
       leave)
         node -e "
@@ -217,7 +217,7 @@ case "$1" in
           node -e "
             const d = JSON.parse(\`$RESULT\`);
             if (!d.rankings || d.rankings.length === 0) {
-              console.log('  No blends this week yet.');
+              console.log('  No reviews this week yet.');
               process.exit(0);
             }
             console.log('');
@@ -248,16 +248,16 @@ case "$1" in
     echo "  smoothie models add <id>     Add by OpenRouter model ID"
     echo "  smoothie models remove <id>  Remove a model"
     echo ""
-    echo "  smoothie auto                Show auto-blend status"
-    echo "  smoothie auto on             Enable auto-blend for plans"
-    echo "  smoothie auto off            Disable auto-blend"
+    echo "  smoothie auto                Show auto-review status"
+    echo "  smoothie auto on             Enable auto-review for plans"
+    echo "  smoothie auto off            Disable auto-review"
     echo ""
-    echo "  smoothie blend \"<prompt>\"         Run a blend from terminal"
-    echo "  smoothie blend --deep \"<prompt>\"  Deep blend with full context"
+    echo "  smoothie review \"<prompt>\"         Run a review from terminal"
+    echo "  smoothie review --deep \"<prompt>\"  Deep review with full context"
     echo ""
     echo "  smoothie stats               Usage stats and history"
     echo "  smoothie stats --share       Shareable stats page"
-    echo "  smoothie share               Share last blend report"
+    echo "  smoothie share               Share last review report"
     echo ""
     echo "  smoothie leaderboard         View weekly rankings"
     echo "  smoothie leaderboard join    Join the leaderboard"

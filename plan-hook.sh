@@ -32,7 +32,7 @@ IS_PLAN=$(tail -c 3000 "$TRANSCRIPT" | grep -c "Would you like to proceed\|## Pl
 
 if [ "$IS_PLAN" -gt 0 ]; then
   echo ""
-  echo "🧃 Smoothie: type 'smoothie' in option 5 to blend this plan before approving."
+  echo "🧃 Smoothie: type 'smoothie' in option 5 to review this plan before approving."
 fi
 
 exit 0

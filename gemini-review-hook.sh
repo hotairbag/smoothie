@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# gemini-blend-hook.sh — BeforeTool hook for exit_plan_mode (Gemini CLI)
+# gemini-review-hook.sh — BeforeTool hook for exit_plan_mode (Gemini CLI)
 #
-# Same as auto-blend-hook.sh but adapted for Gemini CLI:
+# Same as auto-review-hook.sh but adapted for Gemini CLI:
 # - BeforeTool instead of PreToolUse
 # - exit_plan_mode instead of ExitPlanMode
 # - Reads plan from tool_input.plan_path instead of tailing transcript
@@ -16,12 +16,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Read hook input from stdin
 INPUT=$(cat)
 
-# Check if auto-blend is enabled in config
+# Check if auto-review is enabled in config
 if [ -f "$SCRIPT_DIR/config.json" ]; then
   AUTO_ENABLED=$(node -e "
     try {
       const c = JSON.parse(require('fs').readFileSync('$SCRIPT_DIR/config.json','utf8'));
-      console.log(c.auto_blend === true ? 'true' : 'false');
+      console.log(c.auto_review === true ? 'true' : 'false');
     } catch(e) { console.log('false'); }
   " 2>/dev/null)
 
@@ -81,7 +81,7 @@ $PLAN_CONTEXT
 Provide concise, actionable feedback. Focus only on things that should change."
 
 # Run the blend (progress shows on stderr, results on stdout)
-BLEND_RESULTS=$(echo "$REVIEW_PROMPT" | node "$SCRIPT_DIR/dist/blend-cli.js" 2>/dev/stderr)
+BLEND_RESULTS=$(echo "$REVIEW_PROMPT" | node "$SCRIPT_DIR/dist/review-cli.js" 2>/dev/stderr)
 
 # Generate share link (metadata only, no raw content)
 SHARE_URL=""
@@ -113,7 +113,7 @@ if [ -z "$BLEND_RESULTS" ]; then
 fi
 
 # Build the additionalContext string
-CONTEXT="🧃 Smoothie auto-blend results — multiple models reviewed this plan:
+CONTEXT="🧃 Smoothie auto-review results — multiple models reviewed this plan:
 
 $BLEND_RESULTS
 
@@ -140,7 +140,7 @@ node -e "
     hookSpecificOutput: {
       hookEventName: 'BeforeTool',
       permissionDecision: 'allow',
-      permissionDecisionReason: 'Smoothie auto-blend completed',
+      permissionDecisionReason: 'Smoothie auto-review completed',
       additionalContext: ctx
     }
   }));

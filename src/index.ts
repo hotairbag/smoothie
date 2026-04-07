@@ -227,7 +227,7 @@ function buildDeepContext(prompt: string): string {
 const server = new McpServer({ name: 'smoothie', version: '1.0.0' });
 
 server.tool(
-  'smoothie_blend',
+  'smoothie_review',
   {
     prompt: z.string().describe('The prompt to send to all models'),
     deep: z.boolean().optional().describe('Full context mode with project files and git diff'),
@@ -270,7 +270,7 @@ server.tool(
     }
 
     // Print initial progress
-    process.stderr.write('\n\u{1F9C3} Smoothie blending...\n\n');
+    process.stderr.write('\n\u{1F9C3} Smoothie reviewing...\n\n');
     for (const { label } of models) {
       process.stderr.write(`  \u23F3 ${label.padEnd(26)} waiting...\n`);
     }
@@ -306,10 +306,10 @@ server.tool(
     // Save for share command + append to history
     try {
       const { writeFileSync, appendFileSync } = await import('fs');
-      writeFileSync(join(SMOOTHIE_HOME, '.last-blend.json'), JSON.stringify({ results }, null, 2));
+      writeFileSync(join(SMOOTHIE_HOME, '.last-review.json'), JSON.stringify({ results }, null, 2));
       const entry = {
         ts: new Date().toISOString(),
-        type: deep ? 'deep' : 'blend',
+        type: deep ? 'deep' : 'review',
         models: results.map(r => ({ model: r.model, elapsed_s: r.elapsed_s, tokens: r.tokens, error: r.response.startsWith('Error:') })),
       };
       appendFileSync(join(SMOOTHIE_HOME, '.smoothie-history.jsonl'), JSON.stringify(entry) + '\n');
@@ -325,14 +325,14 @@ server.tool(
         const weekNum = Math.ceil((days + jan1.getDay() + 1) / 7);
         const week = `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
         const totalTokens = results.reduce((s, r) => s + (r.tokens?.total || 0), 0);
-        const blendId = `${cfg.github}-${Date.now()}`;
+        const reviewId = `${cfg.github}-${Date.now()}`;
 
         await fetch('https://api.smoothiecode.com/api/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             github: cfg.github,
-            blend_id: blendId,
+            review_id: reviewId,
             tokens: totalTokens,
             blends: 1,
             models: results.map(r => ({ model: r.model, tokens: r.tokens?.total || 0 })),

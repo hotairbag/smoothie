@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * blend-cli.ts — Standalone blend runner for hooks.
+ * review-cli.ts — Standalone blend runner for hooks.
  *
  * Usage:
- *   node dist/blend-cli.js "Review this plan: ..."
- *   echo "plan text" | node dist/blend-cli.js
+ *   node dist/review-cli.js "Review this plan: ..."
+ *   echo "plan text" | node dist/review-cli.js
  *
  * Queries Codex + OpenRouter models in parallel, prints JSON results to stdout.
  * Progress goes to stderr so it doesn't interfere with hook JSON output.
@@ -31,7 +31,7 @@ try { mkdirSync(SMOOTHIE_HOME, { recursive: true }); } catch {}
 
 interface Config {
   openrouter_models: Array<{ id: string; label: string }>;
-  auto_blend?: boolean;
+  auto_review?: boolean;
 }
 
 interface ModelResult {
@@ -157,7 +157,7 @@ async function main(): Promise<void> {
   process.argv = [process.argv[0], process.argv[1], ...filteredArgs];
   const prompt = await getPrompt();
   if (!prompt.trim()) {
-    process.stderr.write('blend-cli: no prompt provided\n');
+    process.stderr.write('review-cli: no prompt provided\n');
     process.exit(1);
   }
 
@@ -202,7 +202,7 @@ async function main(): Promise<void> {
     })),
   ];
 
-  process.stderr.write('\n🧃 Smoothie blending...\n\n');
+  process.stderr.write('\n🧃 Smoothie reviewing...\n\n');
   for (const { label } of models) {
     process.stderr.write(`  ⏳ ${label.padEnd(26)} waiting...\n`);
   }
@@ -234,10 +234,10 @@ async function main(): Promise<void> {
   // Save for share command + append to history
   try {
     const { appendFileSync } = await import('fs');
-    writeFileSync(join(SMOOTHIE_HOME, '.last-blend.json'), JSON.stringify({ results }, null, 2));
+    writeFileSync(join(SMOOTHIE_HOME, '.last-review.json'), JSON.stringify({ results }, null, 2));
     const entry = {
       ts: new Date().toISOString(),
-      type: deep ? 'deep' : 'blend',
+      type: deep ? 'deep' : 'review',
       models: results.map(r => ({ model: r.model, elapsed_s: r.elapsed_s, tokens: r.tokens, error: r.response.startsWith('Error:') })),
     };
     appendFileSync(join(SMOOTHIE_HOME, '.smoothie-history.jsonl'), JSON.stringify(entry) + '\n');
@@ -253,14 +253,14 @@ async function main(): Promise<void> {
       const weekNum = Math.ceil((days + jan1.getDay() + 1) / 7);
       const week = `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
       const totalTokens = results.reduce((s, r) => s + (r.tokens?.total || 0), 0);
-      const blendId = `${cfg.github}-${Date.now()}`;
+      const reviewId = `${cfg.github}-${Date.now()}`;
 
       await fetch('https://api.smoothiecode.com/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           github: cfg.github,
-          blend_id: blendId,
+          review_id: reviewId,
           tokens: totalTokens,
           blends: 1,
           models: results.map(r => ({ model: r.model, tokens: r.tokens?.total || 0 })),
