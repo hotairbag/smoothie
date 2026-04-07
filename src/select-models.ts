@@ -200,6 +200,8 @@ async function cmdPick(apiKey: string, configPath: string): Promise<void> {
   const excluded = excludePrefixes[platform] || [];
   topModels = topModels.filter(m => !excluded.some(prefix => m.id.startsWith(prefix + '/')));
 
+  console.log('  \x1b[90mSee trending: https://openrouter.ai/rankings/programming\x1b[0m');
+
   // Default selection: first 3
   const selected = new Set([0, 1, 2]);
 

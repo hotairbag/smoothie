@@ -13,10 +13,15 @@ Multi-model review plugin for Claude Code. Sends your problem or plan to multipl
 ## Install
 
 ```bash
+npx smoothie-code
+```
+
+Or clone manually:
+```bash
 git clone https://github.com/hotairbag/smoothie && cd smoothie && bash install.sh
 ```
 
-The installer walks you through everything: dependencies, Codex auth, OpenRouter key, and model selection.
+The installer walks you through everything: dependencies, Codex auth (optional), OpenRouter key, and model selection.
 
 Restart Claude Code after install.
 
