@@ -1,15 +1,27 @@
 #!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CONFIG="$SCRIPT_DIR/config.json"
+
+# ~/.smoothie/ is the single source of truth for all config + data
+SMOOTHIE_HOME="$HOME/.smoothie"
+CONFIG="$SMOOTHIE_HOME/config.json"
+
+# Install dir (where dist/, hooks live) — stored during install
+INSTALL_DIR="$(cat "$SMOOTHIE_HOME/.install-path" 2>/dev/null)"
+if [ -z "$INSTALL_DIR" ] || [ ! -d "$INSTALL_DIR" ]; then
+  # Fallback: resolve from script location (works for git clone installs)
+  INSTALL_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")/.." && pwd)"
+fi
+
+# Ensure ~/.smoothie exists
+mkdir -p "$SMOOTHIE_HOME"
 
 case "$1" in
   models)
     shift
-    node "$SCRIPT_DIR/dist/select-models.js" "$@"
+    node "$INSTALL_DIR/dist/select-models.js" "$@"
     ;;
   blend)
     shift
-    node "$SCRIPT_DIR/dist/blend-cli.js" "$@"
+    node "$INSTALL_DIR/dist/blend-cli.js" "$@"
     ;;
   auto)
     case "$2" in
@@ -44,7 +56,7 @@ case "$1" in
     esac
     ;;
   stats)
-    HISTORY="$SCRIPT_DIR/.smoothie-history.jsonl"
+    HISTORY="$SMOOTHIE_HOME/.smoothie-history.jsonl"
     if [ ! -f "$HISTORY" ]; then
       echo "  No history yet. Run a blend first."
       exit 0
@@ -59,7 +71,6 @@ case "$1" in
       const errors = lines.reduce((s, e) => s + e.models.filter(m => m.error).length, 0);
       const successes = lines.reduce((s, e) => s + e.models.filter(m => !m.error).length, 0);
 
-      // Model usage counts
       const modelStats = {};
       for (const entry of lines) {
         for (const m of entry.models) {
@@ -71,22 +82,7 @@ case "$1" in
         }
       }
 
-      // Sort by calls
       const sorted = Object.entries(modelStats).sort((a, b) => b[1].calls - a[1].calls);
-
-      console.log('');
-      console.log('  🧃 Smoothie Stats');
-      console.log('  ─────────────────────────────────────────');
-      console.log('  Blends: ' + totalBlends + '  Tokens: ' + totalTokens.toLocaleString() + '  Time: ' + totalTime.toFixed(0) + 's');
-      console.log('  Success rate: ' + successes + '/' + (successes + errors) + ' (' + (successes / (successes + errors) * 100).toFixed(0) + '%)');
-      console.log('');
-      console.log('  Model                        Calls  Tokens     Avg time  Errors');
-      console.log('  ─────────────────────────────────────────────────────────────────');
-      for (const [name, s] of sorted) {
-        const avg = (s.totalTime / s.calls).toFixed(1);
-        console.log('  ' + name.padEnd(30) + String(s.calls).padStart(5) + String(s.tokens.toLocaleString()).padStart(8) + (avg + 's').padStart(10) + String(s.errors).padStart(8));
-      }
-      console.log('');
 
       if ('$2' === '--share') {
         const rate = (successes / (successes + errors) * 100).toFixed(0);
@@ -94,41 +90,41 @@ case "$1" in
         const mt = sorted.map(s => s[1].tokens).join(',');
         const mc = sorted.map(s => s[1].calls).join(',');
         const ma = sorted.map(s => (s[1].totalTime / s[1].calls).toFixed(1)).join(',');
-        const params = 'blends=' + totalBlends + '&tokens=' + totalTokens + '&time=' + totalTime.toFixed(0) + '&rate=' + rate + '&names=' + encodeURIComponent(names) + '&mt=' + encodeURIComponent(mt) + '&mc=' + encodeURIComponent(mc) + '&ma=' + encodeURIComponent(ma);
 
-        // Try to create short URL via API
         const https = require('https');
-        const postData = JSON.stringify({ type: 'stats', data: params });
-        const req = https.request({
-          hostname: 'api.smoothiecode.com',
-          path: '/api/share',
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Content-Length': postData.length },
-          timeout: 5000,
-        }, (res) => {
-          let body = '';
-          res.on('data', c => body += c);
+        const postData = JSON.stringify({ type: 'stats', data: 'blends=' + totalBlends + '&tokens=' + totalTokens + '&time=' + totalTime.toFixed(0) + '&rate=' + rate + '&names=' + encodeURIComponent(names) + '&mt=' + encodeURIComponent(mt) + '&mc=' + encodeURIComponent(mc) + '&ma=' + encodeURIComponent(ma) });
+        const longUrl = 'https://smoothiecode.com/stats?blends=' + totalBlends + '&tokens=' + totalTokens + '&time=' + totalTime.toFixed(0) + '&rate=' + rate + '&names=' + encodeURIComponent(names) + '&mt=' + encodeURIComponent(mt) + '&mc=' + encodeURIComponent(mc) + '&ma=' + encodeURIComponent(ma);
+
+        const req = https.request('https://api.smoothiecode.com/api/share', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) }, timeout: 5000 }, res => {
+          let d = '';
+          res.on('data', c => d += c);
           res.on('end', () => {
-            try {
-              const shortUrl = JSON.parse(body).url;
-              if (shortUrl) { console.log('  ' + shortUrl); }
-              else { console.log('  https://smoothiecode.com/stats?' + params); }
-            } catch { console.log('  https://smoothiecode.com/stats?' + params); }
+            try { console.log('  ' + JSON.parse(d).url); }
+            catch { console.log('  ' + longUrl); }
             console.log('');
             console.log('  Open in browser to save as image or copy tweet');
             console.log('');
           });
         });
-        req.on('error', () => {
-          console.log('  https://smoothiecode.com/stats?' + params);
-          console.log('');
-          console.log('  Open in browser to save as image or copy tweet');
-          console.log('');
-        });
-        req.on('timeout', () => { req.destroy(); });
+        req.on('error', () => { console.log('  ' + longUrl); console.log(''); });
+        req.on('timeout', () => { req.destroy(); console.log('  ' + longUrl); console.log(''); });
         req.write(postData);
         req.end();
       } else {
+        console.log('');
+        console.log('  🧃 Smoothie Stats');
+        console.log('  ─────────────────────────────────────────');
+        console.log('  Blends: ' + totalBlends + '  Tokens: ' + totalTokens.toLocaleString() + '  Time: ' + totalTime.toFixed(0) + 's');
+        console.log('  Success rate: ' + successes + '/' + (successes + errors) + ' (' + (successes / (successes + errors) * 100).toFixed(0) + '%)');
+        console.log('');
+        console.log('  Model                        Calls  Tokens     Avg time  Errors');
+        console.log('  ─────────────────────────────────────────────────────────────────');
+        for (const [name, s] of sorted) {
+          const avg = (s.totalTime / s.calls).toFixed(1);
+          console.log('  ' + name.padEnd(30) + String(s.calls).padStart(5) + String(s.tokens.toLocaleString()).padStart(8) + (avg + 's').padStart(10) + String(s.errors).padStart(8));
+        }
+        console.log('');
+
         const recent = lines.slice(-5).reverse();
         console.log('  Recent blends:');
         for (const e of recent) {
@@ -143,16 +139,15 @@ case "$1" in
     ;;
   share)
     shift
-    if [ -f "$SCRIPT_DIR/.last-blend.json" ]; then
+    if [ -f "$SMOOTHIE_HOME/.last-blend.json" ]; then
       PARAMS=$(node -e "
-        const r = JSON.parse(require('fs').readFileSync('$SCRIPT_DIR/.last-blend.json','utf8'));
+        const r = JSON.parse(require('fs').readFileSync('$SMOOTHIE_HOME/.last-blend.json','utf8'));
         const models = r.results.map(m => m.model).join(',');
         const times = r.results.map(m => m.elapsed_s || 0).join(',');
         const tokens = r.results.map(m => m.tokens?.total || 0).join(',');
         console.log('models=' + encodeURIComponent(models) + '&times=' + encodeURIComponent(times) + '&tokens=' + encodeURIComponent(tokens) + '&type=plan&suggestions=0');
       ")
-      # Try to create short URL
-      SHORT=$(curl -s -X POST "https://api.smoothiecode.com/api/share" \
+      SHORT=$(curl -s --max-time 5 --connect-timeout 3 -X POST "https://api.smoothiecode.com/api/share" \
         -H "Content-Type: application/json" \
         -d "{\"type\":\"report\",\"data\":\"$PARAMS\"}" 2>/dev/null | node -e "
           let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
@@ -215,7 +210,6 @@ case "$1" in
         fi
         ;;
       *)
-        # Show leaderboard
         RESULT=$(curl -s "$LEADERBOARD_API/api/leaderboard" 2>/dev/null)
         if [ -z "$RESULT" ]; then
           echo "  Could not reach leaderboard. Check your connection."
@@ -235,7 +229,7 @@ case "$1" in
               const medal = medals[i] || '  ';
               const tokens = r.total_tokens >= 1000 ? (r.total_tokens/1000).toFixed(1)+'k' : r.total_tokens;
               const tw = r.twitter ? ' @'+r.twitter : '';
-              console.log('  ' + medal + ' #' + (i+1) + '  ' + r.github.padEnd(20) + tokens.padStart(8) + ' tokens  ' + r.total_blends + ' blends' + tw);
+              console.log('  ' + medal + ' #' + (i+1) + '  ' + r.github.padEnd(20) + tokens.padStart(8) + ' tokens' + tw);
             }
             console.log('');
             console.log('  https://smoothiecode.com/leaderboard');
@@ -261,14 +255,14 @@ case "$1" in
     echo "  smoothie blend \"<prompt>\"         Run a blend from terminal"
     echo "  smoothie blend --deep \"<prompt>\"  Deep blend with full context"
     echo ""
+    echo "  smoothie stats               Usage stats and history"
+    echo "  smoothie stats --share       Shareable stats page"
+    echo "  smoothie share               Share last blend report"
+    echo ""
     echo "  smoothie leaderboard         View weekly rankings"
     echo "  smoothie leaderboard join    Join the leaderboard"
     echo "  smoothie leaderboard leave   Leave and delete data"
     echo "  smoothie leaderboard profile Set Twitter handle"
-    echo ""
-    echo "  smoothie stats               Usage stats and history"
-    echo "  smoothie stats --share       Shareable stats page"
-    echo "  smoothie share               Share last blend report"
     echo ""
     ;;
   *)

@@ -11,9 +11,10 @@
  * Progress goes to stderr so it doesn't interfere with hook JSON output.
  */
 
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { homedir } from 'os';
 import { execFile as execFileCb } from 'child_process';
 import { promisify } from 'util';
 import { createInterface } from 'readline';
@@ -21,6 +22,8 @@ import { createInterface } from 'readline';
 const execFile = promisify(execFileCb);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
+const SMOOTHIE_HOME = join(homedir(), '.smoothie');
+try { mkdirSync(SMOOTHIE_HOME, { recursive: true }); } catch {}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -231,13 +234,13 @@ async function main(): Promise<void> {
   // Save for share command + append to history
   try {
     const { appendFileSync } = await import('fs');
-    writeFileSync(join(PROJECT_ROOT, '.last-blend.json'), JSON.stringify({ results }, null, 2));
+    writeFileSync(join(SMOOTHIE_HOME, '.last-blend.json'), JSON.stringify({ results }, null, 2));
     const entry = {
       ts: new Date().toISOString(),
       type: deep ? 'deep' : 'blend',
       models: results.map(r => ({ model: r.model, elapsed_s: r.elapsed_s, tokens: r.tokens, error: r.response.startsWith('Error:') })),
     };
-    appendFileSync(join(PROJECT_ROOT, '.smoothie-history.jsonl'), JSON.stringify(entry) + '\n');
+    appendFileSync(join(SMOOTHIE_HOME, '.smoothie-history.jsonl'), JSON.stringify(entry) + '\n');
   } catch {}
 
   // Submit to leaderboard if opted in

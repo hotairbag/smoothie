@@ -458,6 +458,14 @@ CURSORRULE
   fi
 fi
 
+# ─── Setup ~/.smoothie/ (single source of truth for CLI) ─────────────
+mkdir -p "$HOME/.smoothie"
+chmod 700 "$HOME/.smoothie"
+cp "$SCRIPT_DIR/config.json" "$HOME/.smoothie/config.json" 2>/dev/null
+cp "$SCRIPT_DIR/.env" "$HOME/.smoothie/.env" 2>/dev/null
+echo "$SCRIPT_DIR" > "$HOME/.smoothie/.install-path"
+echo -e "  ${G}✓${N} Config saved to ~/.smoothie/"
+
 # ─── Done ─────────────────────────────────────────────────────────────
 MODELS=$(node -e "
 const d = JSON.parse(require('fs').readFileSync('$SCRIPT_DIR/config.json','utf8'));
