@@ -6,6 +6,16 @@
   "bin": {
     "smoothie": "./bin/smoothie"
   },
+  "files": [
+    "dist/",
+    "bin/",
+    "install.sh",
+    "auto-blend-hook.sh",
+    "plan-hook.sh",
+    "pr-blend-hook.sh",
+    "config.json",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js"
