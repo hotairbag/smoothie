@@ -2,3 +2,4 @@
 node_modules/
 dist/
 .last-blend.json
+.npm-cache/
