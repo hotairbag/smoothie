@@ -14,6 +14,35 @@ fi
 # Ensure ~/.smoothie exists
 mkdir -p "$SMOOTHIE_HOME"
 
+show_help() {
+  echo ""
+  echo "  🧃 Smoothie — multi-model code review"
+  echo ""
+  echo "  smoothie install                     Run the installer"
+  echo ""
+  echo "  smoothie models                      Pick models interactively"
+  echo "  smoothie models list                 Show current models"
+  echo "  smoothie models add <id>             Add by OpenRouter model ID"
+  echo "  smoothie models remove <id>          Remove a model"
+  echo ""
+  echo "  smoothie auto                        Show auto-review status"
+  echo "  smoothie auto on                     Enable auto-review for plans"
+  echo "  smoothie auto off                    Disable auto-review"
+  echo ""
+  echo "  smoothie review \"<prompt>\"            Run a review from terminal"
+  echo "  smoothie review --deep \"<prompt>\"     Deep review with full context"
+  echo ""
+  echo "  smoothie stats                       Usage stats and history"
+  echo "  smoothie stats --share               Shareable stats page"
+  echo "  smoothie share                       Share last review report"
+  echo ""
+  echo "  smoothie leaderboard                 View weekly rankings"
+  echo "  smoothie leaderboard join            Join the leaderboard"
+  echo "  smoothie leaderboard leave           Leave and delete data"
+  echo "  smoothie leaderboard profile         Set Twitter handle"
+  echo ""
+}
+
 case "$1" in
   models)
     shift
@@ -239,31 +268,19 @@ case "$1" in
         ;;
     esac
     ;;
-  help|--help|-h|"")
-    echo ""
-    echo "  🧃 Smoothie — multi-model review for Claude Code"
-    echo ""
-    echo "  smoothie models              Pick models interactively"
-    echo "  smoothie models list         Show current models"
-    echo "  smoothie models add <id>     Add by OpenRouter model ID"
-    echo "  smoothie models remove <id>  Remove a model"
-    echo ""
-    echo "  smoothie auto                Show auto-review status"
-    echo "  smoothie auto on             Enable auto-review for plans"
-    echo "  smoothie auto off            Disable auto-review"
-    echo ""
-    echo "  smoothie review \"<prompt>\"         Run a review from terminal"
-    echo "  smoothie review --deep \"<prompt>\"  Deep review with full context"
-    echo ""
-    echo "  smoothie stats               Usage stats and history"
-    echo "  smoothie stats --share       Shareable stats page"
-    echo "  smoothie share               Share last review report"
-    echo ""
-    echo "  smoothie leaderboard         View weekly rankings"
-    echo "  smoothie leaderboard join    Join the leaderboard"
-    echo "  smoothie leaderboard leave   Leave and delete data"
-    echo "  smoothie leaderboard profile Set Twitter handle"
-    echo ""
+  install)
+    bash "$INSTALL_DIR/install.sh"
+    ;;
+  help|--help|-h)
+    show_help
+    ;;
+  "")
+    # No args: install if first time, help if already set up
+    if [ ! -f "$CONFIG" ]; then
+      bash "$INSTALL_DIR/install.sh"
+    else
+      show_help
+    fi
     ;;
   *)
     echo "  Unknown command: $1"
