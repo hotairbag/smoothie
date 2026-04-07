@@ -386,6 +386,33 @@ Step 3 — Summarize findings with file:line references. Be direct.
 """
 TOML
   echo -e "  ${G}✓${N} Slash command /smoothie-pr (Gemini)"
+
+  # Register auto-blend hook for Gemini CLI
+  chmod +x "$SCRIPT_DIR/gemini-blend-hook.sh"
+  GEMINI_SETTINGS="$HOME/.gemini/settings.json"
+  GEMINI_EXISTING="{}"
+  [ -f "$GEMINI_SETTINGS" ] && GEMINI_EXISTING=$(cat "$GEMINI_SETTINGS")
+
+  node -e "
+    const fs = require('fs');
+    let s;
+    try { s = JSON.parse(\`$GEMINI_EXISTING\`); } catch(e) { s = {}; }
+    s.hooks = s.hooks || {};
+    s.hooks.BeforeTool = s.hooks.BeforeTool || [];
+    const exists = s.hooks.BeforeTool.some(h => h.matcher === 'exit_plan_mode');
+    if (!exists) {
+      s.hooks.BeforeTool.push({
+        matcher: 'exit_plan_mode',
+        hooks: [{
+          type: 'command',
+          command: 'bash $SCRIPT_DIR/gemini-blend-hook.sh',
+          timeout: 600
+        }]
+      });
+    }
+    fs.writeFileSync('$GEMINI_SETTINGS', JSON.stringify(s, null, 2));
+  "
+  echo -e "  ${G}✓${N} Auto-blend hook registered (BeforeTool/exit_plan_mode)"
 fi
 
 if [ "$PLATFORM" = "cursor" ]; then
