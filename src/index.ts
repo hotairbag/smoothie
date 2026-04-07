@@ -291,6 +291,12 @@ server.tool(
     const judgeName = judgeNames[platform] || 'the judge';
     process.stderr.write(`\n  \u25C6  All done. Handing to ${judgeName}...\n\n`);
 
+    // Save for share command
+    try {
+      const { writeFileSync } = await import('fs');
+      writeFileSync(join(PROJECT_ROOT, '.last-blend.json'), JSON.stringify({ results }, null, 2));
+    } catch {}
+
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({ results }, null, 2) }],
     };
