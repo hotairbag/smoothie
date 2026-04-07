@@ -1,12 +1,32 @@
 {
   "openrouter_models": [
     {
+      "id": "google/gemma-4-26b-a4b-it",
+      "label": "Google: Gemma 4 26B A4B "
+    },
+    {
+      "id": "qwen/qwen3.6-plus:free",
+      "label": "Qwen: Qwen3.6 Plus (free)"
+    },
+    {
+      "id": "x-ai/grok-4.20-multi-agent",
+      "label": "xAI: Grok 4.20 Multi-Agent"
+    },
+    {
       "id": "openai/gpt-5.4-nano",
       "label": "OpenAI: GPT-5.4 Nano"
+    },
+    {
+      "id": "xiaomi/mimo-v2-pro",
+      "label": "Xiaomi: MiMo-V2-Pro"
+    },
+    {
+      "id": "minimax/minimax-m2.7",
+      "label": "MiniMax: MiniMax M2.7"
     }
   ],
   "auto_blend": true,
   "leaderboard": true,
-  "github": "hotairbag",
+  "github": "y",
   "auto_review": true
 }
