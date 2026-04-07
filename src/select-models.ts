@@ -196,6 +196,7 @@ async function cmdPick(apiKey: string, configPath: string): Promise<void> {
     claude: ['anthropic'],
     codex: ['openai'],
     gemini: ['google'],
+    cursor: [],  // Cursor uses various models, nothing to exclude
   };
   const excluded = excludePrefixes[platform] || [];
   topModels = topModels.filter(m => !excluded.some(prefix => m.id.startsWith(prefix + '/')));

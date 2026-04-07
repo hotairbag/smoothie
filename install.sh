@@ -71,11 +71,13 @@ step "Detecting platform"
 HAS_CLAUDE=$(command -v claude &>/dev/null && echo "yes" || echo "no")
 HAS_CODEX=$(command -v codex &>/dev/null && echo "yes" || echo "no")
 HAS_GEMINI=$(command -v gemini &>/dev/null && echo "yes" || echo "no")
+HAS_CURSOR=$([ -d "$HOME/.cursor" ] && echo "yes" || echo "no")
 
 DETECTED=()
 [ "$HAS_CLAUDE" = "yes" ] && DETECTED+=("claude:Claude Code")
 [ "$HAS_CODEX"  = "yes" ] && DETECTED+=("codex:Codex CLI")
 [ "$HAS_GEMINI" = "yes" ] && DETECTED+=("gemini:Gemini CLI")
+[ "$HAS_CURSOR" = "yes" ] && DETECTED+=("cursor:Cursor")
 
 if [ ${#DETECTED[@]} -eq 0 ]; then
   echo -e "  ${Y}No AI CLI detected. Defaulting to Claude Code.${N}"
@@ -386,6 +388,49 @@ TOML
   echo -e "  ${G}✓${N} Slash command /smoothie-pr (Gemini)"
 fi
 
+if [ "$PLATFORM" = "cursor" ]; then
+  # Register MCP server in Cursor
+  CURSOR_MCP="$HOME/.cursor/mcp.json"
+  CURSOR_EXISTING="{}"
+  [ -f "$CURSOR_MCP" ] && CURSOR_EXISTING=$(cat "$CURSOR_MCP")
+
+  node -e "
+    const fs = require('fs');
+    let s;
+    try { s = JSON.parse(\`$CURSOR_EXISTING\`); } catch(e) { s = {}; }
+    s.mcpServers = s.mcpServers || {};
+    s.mcpServers.smoothie = {
+      command: 'node',
+      args: ['$SCRIPT_DIR/dist/index.js'],
+      env: { SMOOTHIE_PLATFORM: 'cursor' }
+    };
+    fs.writeFileSync('$CURSOR_MCP', JSON.stringify(s, null, 2));
+  "
+  echo -e "  ${G}✓${N} Cursor MCP server registered"
+
+  # Create Cursor Rule for auto-blend (only if auto-blend is enabled)
+  if [[ "$AUTO_BLEND" =~ ^[Yy]$ ]]; then
+    mkdir -p "$HOME/.cursor/rules"
+    cat > "$HOME/.cursor/rules/smoothie.mdc" << 'CURSORRULE'
+---
+description: Smoothie multi-model review — runs before significant plans
+alwaysApply: true
+---
+
+Before proposing or implementing any plan that involves significant code changes,
+call the `smoothie_blend` MCP tool with a description of what you're about to do.
+
+Wait for results, then:
+1. Show a summary table: Model | Time | Tokens | Verdict | Key feedback
+2. Incorporate valid suggestions into your plan
+3. Proceed with implementation
+
+Skip the blend for trivial changes (typos, single-line fixes, config tweaks).
+CURSORRULE
+    echo -e "  ${G}✓${N} Cursor Rule created (auto-blend)"
+  fi
+fi
+
 # ─── Done ─────────────────────────────────────────────────────────────
 MODELS=$(node -e "
 const d = JSON.parse(require('fs').readFileSync('$SCRIPT_DIR/config.json','utf8'));
@@ -395,11 +440,20 @@ console.log(['Codex', ...d.openrouter_models.map(m=>m.label)].join(' · '));
 echo ""
 echo -e "  ${D}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"
 echo ""
-echo -e "  ${G}${B}Done!${N} Restart Claude Code, then:"
-echo ""
-echo -e "  ${C}/smoothie${N} ${D}<your problem>${N}    blend in Claude Code"
-if [[ "$AUTO_BLEND" =~ ^[Yy]$ ]]; then
-echo -e "  ${C}auto-blend${N}                  ${G}on${N} for all plans"
+if [ "$PLATFORM" = "cursor" ]; then
+  echo -e "  ${G}${B}Done!${N} Restart Cursor, then:"
+  echo ""
+  echo -e "  ${D}Ask Cursor to plan something — it calls smoothie_blend via MCP${N}"
+  if [[ "$AUTO_BLEND" =~ ^[Yy]$ ]]; then
+    echo -e "  ${C}auto-blend${N}                  ${G}on${N} (via Cursor Rule)"
+  fi
+else
+  echo -e "  ${G}${B}Done!${N} Restart Claude Code, then:"
+  echo ""
+  echo -e "  ${C}/smoothie${N} ${D}<your problem>${N}    blend in Claude Code"
+  if [[ "$AUTO_BLEND" =~ ^[Yy]$ ]]; then
+    echo -e "  ${C}auto-blend${N}                  ${G}on${N} for all plans"
+  fi
 fi
 echo -e "  ${C}smoothie models${N}             manage models"
 echo ""

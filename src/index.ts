@@ -292,7 +292,7 @@ server.tool(
     });
 
     const results: ModelResult[] = await Promise.all(promises);
-    const judgeNames: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini' };
+    const judgeNames: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', cursor: 'Cursor' };
     const judgeName = judgeNames[platform] || 'the judge';
     process.stderr.write(`\n  \u25C6  All done. Handing to ${judgeName}...\n\n`);
 
