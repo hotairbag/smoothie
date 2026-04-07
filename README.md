@@ -1,14 +1,8 @@
 # Smoothie
 
-<p align="center">
-  <img src="banner-v2.svg" alt="Smoothie — multi-model review for Claude Code" width="100%">
-</p>
+Multi-model code review for AI coding agents. Query Codex, Gemini, Grok, DeepSeek and more in parallel — get one blended answer.
 
-Multi-model review plugin for Claude Code. Sends your problem or plan to multiple AI models simultaneously, then Claude judges all responses and serves you one blended result.
-
-**Two model tracks:**
-- **Codex** — Codex CLI, authenticated via ChatGPT account OAuth
-- **OpenRouter** — single API key, models selected at install time from a live ranked list
+**[Website](https://smoothiecode.com)** · **[Docs](https://smoothiecode.com/docs)** · **[Leaderboard](https://smoothiecode.com/leaderboard)** · **[@smoothie_code](https://x.com/smoothie_code)**
 
 ## Install
 
@@ -16,72 +10,55 @@ Multi-model review plugin for Claude Code. Sends your problem or plan to multipl
 npx smoothie-code
 ```
 
-Or clone manually:
+Works with **Claude Code**, **Gemini CLI**, **Codex CLI**, and **Cursor**.
+
+## Features
+
+- `/smoothie <problem>` — blend across all models, get one answer
+- `/smoothie-pr` — multi-model PR review
+- `/smoothie --deep` — full context mode with cost estimate
+- **Auto-blend** — plans and PRs reviewed automatically before you approve
+- **Leaderboard** — weekly token rankings at [smoothiecode.com/leaderboard](https://smoothiecode.com/leaderboard)
+- **Stats & sharing** — `smoothie stats`, `smoothie share`
+
+## Platform support
+
+| Feature | Claude Code | Gemini CLI | Codex CLI | Cursor |
+|---------|------------|-----------|-----------|--------|
+| MCP server | ✓ | ✓ | ✓ (STDIO) | ✓ |
+| Slash commands | ✓ | ✓ | — | — |
+| Auto-blend hooks | ✓ | ✓ | ⚠ experimental | Rule-based |
+| `/smoothie` | ✓ | ✓ | — | — |
+| `smoothie blend` CLI | ✓ | ✓ | ✓ | ✓ |
+
+## CLI
+
 ```bash
-git clone https://github.com/hotairbag/smoothie && cd smoothie && bash install.sh
+smoothie models              # pick models
+smoothie auto on|off         # toggle auto-blend
+smoothie blend "<prompt>"    # run a blend
+smoothie blend --deep "..."  # deep blend with full context
+smoothie stats               # usage stats
+smoothie share               # share last report
+smoothie leaderboard         # view rankings
+smoothie help                # all commands
 ```
-
-The installer walks you through everything: dependencies, Codex auth (optional), OpenRouter key, and model selection.
-
-Restart Claude Code after install.
-
-## Usage
-
-### Slash command
-```
-/smoothie <your problem or question>
-```
-
-### Auto-blend (plans)
-When enabled, every plan is automatically reviewed by all models before you see it. Claude revises the plan with their feedback, then presents the improved version for approval. Zero effort.
-
-Enable during install, or toggle anytime in `config.json`:
-```json
-{ "auto_blend": true }
-```
-
-Adds 30-90s to plan approval while models respond.
-
-### Manage models
-```bash
-smoothie models              # re-pick from top models
-smoothie models add openai/gpt-5.4
-smoothie models remove openai/gpt-5.4
-smoothie models list
-```
-No restart needed — config is read fresh on each blend.
 
 ## How it works
 
 ```
-Claude Code
+Your IDE (Claude/Gemini/Cursor)
     |
-    |-- /smoothie <context>           <- manual slash command
-    |-- PreToolUse hook               <- auto-blend on ExitPlanMode
-    \-- MCP Server
-            \-- smoothie_blend(prompt)
-                    |-- Queries all models in parallel
-                    |-- Streams live progress to terminal
-                    \-- Returns all responses to Claude
+    |-- /smoothie or auto-blend hook
+    \-- MCP Server → smoothie_blend(prompt)
+            |-- Queries all models in parallel
+            |-- Returns responses to the judge AI
+            \-- Judge gives you one blended answer
 ```
 
-**Auto-blend flow:**
-```
-Claude presents plan → ExitPlanMode hook fires → Smoothie blend runs
-→ Results injected as context → Claude revises plan → You approve
-```
+## Links
 
-Claude acts as judge. Raw model outputs are never shown. Claude absorbs everything and hands you one result.
-
-## File overview
-
-| File | Purpose |
-|---|---|
-| `src/index.ts` | MCP server exposing `smoothie_blend` tool |
-| `src/blend-cli.ts` | Standalone blend runner (used by hooks) |
-| `src/select-models.ts` | Interactive model picker (OpenRouter API) |
-| `auto-blend-hook.sh` | PreToolUse hook — auto-blends plans |
-| `plan-hook.sh` | Stop hook — plan mode hint (fallback) |
-| `install.sh` | One-command installer |
-| `config.json` | Model selection + auto_blend flag |
-| `.env` | API keys (gitignored) |
+- [Documentation](https://smoothiecode.com/docs)
+- [Leaderboard](https://smoothiecode.com/leaderboard)
+- [npm](https://www.npmjs.com/package/smoothie-code)
+- [OpenRouter Usage](https://openrouter.ai/apps?url=https%3A%2F%2Fsmoothiecode.com)
