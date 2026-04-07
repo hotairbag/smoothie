@@ -88,16 +88,29 @@ case "$1" in
       }
       console.log('');
 
-      // Recent blends
-      const recent = lines.slice(-5).reverse();
-      console.log('  Recent blends:');
-      for (const e of recent) {
-        const models = e.models.filter(m => !m.error).map(m => m.model).join(', ');
-        const time = Math.max(...e.models.map(m => m.elapsed_s || 0)).toFixed(1);
-        const date = new Date(e.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        console.log('    ' + date + '  ' + e.type.padEnd(6) + time + 's  ' + models);
+      if ('$2' === '--share') {
+        const rate = (successes / (successes + errors) * 100).toFixed(0);
+        const names = sorted.map(s => s[0]).join(',');
+        const mt = sorted.map(s => s[1].tokens).join(',');
+        const mc = sorted.map(s => s[1].calls).join(',');
+        const ma = sorted.map(s => (s[1].totalTime / s[1].calls).toFixed(1)).join(',');
+        const url = 'https://hotairbag.github.io/smoothie/stats.html?blends=' + totalBlends + '&tokens=' + totalTokens + '&time=' + totalTime.toFixed(0) + '&rate=' + rate + '&names=' + encodeURIComponent(names) + '&mt=' + encodeURIComponent(mt) + '&mc=' + encodeURIComponent(mc) + '&ma=' + encodeURIComponent(ma);
+        console.log('');
+        console.log('  ' + url);
+        console.log('');
+        console.log('  Open in browser to save as image or copy tweet');
+        console.log('');
+      } else {
+        const recent = lines.slice(-5).reverse();
+        console.log('  Recent blends:');
+        for (const e of recent) {
+          const models = e.models.filter(m => !m.error).map(m => m.model).join(', ');
+          const time = Math.max(...e.models.map(m => m.elapsed_s || 0)).toFixed(1);
+          const date = new Date(e.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          console.log('    ' + date + '  ' + e.type.padEnd(6) + time + 's  ' + models);
+        }
+        console.log('');
       }
-      console.log('');
     "
     ;;
   share)
@@ -136,6 +149,7 @@ case "$1" in
     echo "  smoothie blend --deep \"<prompt>\"  Deep blend with full context"
     echo ""
     echo "  smoothie stats               Usage stats and history"
+    echo "  smoothie stats --share       Shareable stats page"
     echo "  smoothie share               Share last blend report"
     echo ""
     ;;

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smoothie Stats</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <meta property="og:title" content="My Smoothie Stats">
+  <meta property="og:description" content="Multi-model code review usage stats">
+  <meta property="og:image" content="https://hotairbag.github.io/smoothie/favicon.png">
+  <meta name="twitter:card" content="summary">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0d1117; color: #f0f6fc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+
+    .card { max-width: 520px; width: 100%; margin: 24px; background: #161b22; border: 1px solid #30363d; border-radius: 16px; padding: 32px; }
+
+    .header { text-align: center; margin-bottom: 28px; }
+    .header h1 { font-size: 20px; font-weight: 600; }
+    .header .sub { color: #8b949e; font-size: 13px; margin-top: 4px; }
+
+    .totals {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .total-card {
+      background: #0d1117;
+      border-radius: 10px;
+      padding: 14px 12px;
+      text-align: center;
+    }
+    .total-card .num { font-size: 22px; font-weight: 700; color: #f78166; }
+    .total-card .label { font-size: 10px; color: #8b949e; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #8b949e;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .model-table { margin-bottom: 24px; }
+    .model-row {
+      display: grid;
+      grid-template-columns: 1fr 50px 75px 55px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #21262d;
+      gap: 8px;
+    }
+    .model-row:last-child { border-bottom: none; }
+    .model-row.header-row { color: #484f58; font-size: 11px; padding-bottom: 6px; }
+    .model-name { font-size: 13px; display: flex; align-items: center; gap: 8px; }
+    .model-rank { width: 20px; height: 20px; border-radius: 5px; background: #21262d; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #8b949e; font-weight: 600; flex-shrink: 0; }
+    .model-rank.gold { background: #f78166; color: #0d1117; }
+    .model-val { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #8b949e; text-align: right; }
+
+    .bar-section { margin-bottom: 24px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .bar-label { font-size: 12px; width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-track { flex: 1; height: 8px; background: #21262d; border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; }
+    .bar-fill.tokens { background: linear-gradient(90deg, #f78166, #f7a866); }
+    .bar-fill.time { background: linear-gradient(90deg, #3fb950, #6ee7b7); }
+    .bar-val { font-family: 'SF Mono', monospace; font-size: 11px; color: #8b949e; width: 60px; text-align: right; }
+
+    .actions { display: flex; gap: 10px; margin-bottom: 16px; }
+    .btn { flex: 1; background: #21262d; border: 1px solid #30363d; border-radius: 8px; padding: 10px 16px; color: #f0f6fc; font-size: 13px; cursor: pointer; transition: all 0.2s; text-align: center; }
+    .btn:hover { background: #30363d; border-color: #484f58; }
+
+    .footer { text-align: center; font-size: 12px; color: #484f58; }
+    .footer a { color: #8b949e; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="header">
+      <h1>🧃 Smoothie Stats</h1>
+      <div class="sub">multi-model code review</div>
+    </div>
+
+    <div class="totals">
+      <div class="total-card"><div class="num" id="t-blends">0</div><div class="label">Blends</div></div>
+      <div class="total-card"><div class="num" id="t-tokens">0</div><div class="label">Tokens</div></div>
+      <div class="total-card"><div class="num" id="t-time">0s</div><div class="label">Time</div></div>
+      <div class="total-card"><div class="num" id="t-rate">0%</div><div class="label">Success</div></div>
+    </div>
+
+    <div class="section-title">Token usage by model</div>
+    <div class="bar-section" id="token-bars"></div>
+
+    <div class="section-title">Average response time</div>
+    <div class="bar-section" id="time-bars"></div>
+
+    <div class="actions">
+      <button class="btn" onclick="downloadImage()">📸 Save image</button>
+      <button class="btn" onclick="copyTweet()">📋 Copy tweet</button>
+    </div>
+
+    <div class="footer">
+      <a href="https://hotairbag.github.io/smoothie">smoothie-code</a> · multi-model review for Claude Code
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script>
+    const p = new URLSearchParams(window.location.search);
+    const blends = parseInt(p.get('blends') || '0');
+    const totalTokens = parseInt(p.get('tokens') || '0');
+    const totalTime = parseFloat(p.get('time') || '0');
+    const rate = parseInt(p.get('rate') || '0');
+    const names = (p.get('names') || '').split(',').filter(Boolean);
+    const mTokens = (p.get('mt') || '').split(',').map(Number);
+    const mCalls = (p.get('mc') || '').split(',').map(Number);
+    const mAvgTime = (p.get('ma') || '').split(',').map(Number);
+
+    function fmt(n) { return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n); }
+
+    document.getElementById('t-blends').textContent = blends;
+    document.getElementById('t-tokens').textContent = fmt(totalTokens);
+    document.getElementById('t-time').textContent = totalTime >= 60 ? (totalTime / 60).toFixed(0) + 'm' : totalTime.toFixed(0) + 's';
+    document.getElementById('t-rate').textContent = rate + '%';
+
+    const maxTokens = Math.max(...mTokens, 1);
+    const maxAvg = Math.max(...mAvgTime, 1);
+
+    const tokenBars = document.getElementById('token-bars');
+    const timeBars = document.getElementById('time-bars');
+
+    names.forEach((name, i) => {
+      // Token bar
+      const tRow = document.createElement('div');
+      tRow.className = 'bar-row';
+      tRow.innerHTML = `
+        <span class="bar-label">${name}</span>
+        <div class="bar-track"><div class="bar-fill tokens" style="width: ${(mTokens[i] / maxTokens * 100).toFixed(0)}%"></div></div>
+        <span class="bar-val">${fmt(mTokens[i])}</span>
+      `;
+      tokenBars.appendChild(tRow);
+
+      // Time bar
+      const aRow = document.createElement('div');
+      aRow.className = 'bar-row';
+      aRow.innerHTML = `
+        <span class="bar-label">${name}</span>
+        <div class="bar-track"><div class="bar-fill time" style="width: ${(mAvgTime[i] / maxAvg * 100).toFixed(0)}%"></div></div>
+        <span class="bar-val">${mAvgTime[i].toFixed(1)}s</span>
+      `;
+      timeBars.appendChild(aRow);
+    });
+
+    function downloadImage() {
+      const card = document.getElementById('card');
+      const btn = document.querySelectorAll('.btn')[0];
+      btn.textContent = '...';
+      html2canvas(card, { backgroundColor: '#0d1117', scale: 2, useCORS: true }).then(canvas => {
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = 'smoothie-stats.png';
+        a.click();
+        btn.textContent = '✓ Saved!';
+        setTimeout(() => btn.textContent = '📸 Save image', 2000);
+      }).catch(() => { btn.textContent = '📸 Save image'; });
+    }
+
+    function copyTweet() {
+      const text = `🧃 My Smoothie stats: ${blends} blends across ${names.length} AI models, ${fmt(totalTokens)} tokens, ${rate}% success rate.\n\nMulti-model code review for Claude Code → https://hotairbag.github.io/smoothie`;
+      navigator.clipboard.writeText(text);
+      const btn = document.querySelectorAll('.btn')[1];
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => btn.textContent = '📋 Copy tweet', 2000);
+    }
+  </script>
+</body>
+</html>
