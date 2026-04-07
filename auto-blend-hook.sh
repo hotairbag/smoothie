@@ -111,10 +111,10 @@ IMPORTANT — You must do TWO things:
 | ModelName | 3.1s | 1,847 | useful | one-line summary |
 | ModelName | 8.2s | 2,104 | generic | one-line summary |
 (skip errored/empty models. Verdict = useful, generic, or irrelevant)
-
-2. THEN proceed with implementation as planned, incorporating valid Smoothie suggestions as you go. Do NOT stop to revise — start coding immediately.
 $([ -n "$SHARE_URL" ] && echo "
-Share: $SHARE_URL")"
+Share this report: $SHARE_URL")
+
+2. THEN proceed with implementation as planned, incorporating valid Smoothie suggestions as you go. Do NOT stop to revise — start coding immediately."
 
 # Return: allow ExitPlanMode but inject blend results
 node -e "
