@@ -196,82 +196,118 @@ async function cmdPick(apiKey: string, configPath: string): Promise<void> {
     claude: ['anthropic'],
     codex: ['openai'],
     gemini: ['google'],
-    cursor: [],  // Cursor uses various models, nothing to exclude
+    cursor: [],
   };
   const excluded = excludePrefixes[platform] || [];
   topModels = topModels.filter(m => !excluded.some(prefix => m.id.startsWith(prefix + '/')));
 
-  console.log('  \x1b[90mSee trending: https://openrouter.ai/rankings/programming\x1b[0m');
-
-  // Default selection: first 3
+  // Track selection + any extra models added by ID
   const selected = new Set([0, 1, 2]);
-
-  // Print list with selection markers
-  console.log('');
-  for (let i = 0; i < topModels.length; i++) {
-    const check = selected.has(i) ? '\x1b[32m✓\x1b[0m' : ' ';
-    const num = String(i + 1).padStart(2, ' ');
-    console.log(`  ${check} ${num}. ${topModels[i].label}`);
-  }
-  console.log('');
+  const extras: ModelEntry[] = [];
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
 
-  const answer = await promptQ(
-    rl,
-    '  Toggle numbers, paste model ID, or Enter to confirm: ',
-  );
-  rl.close();
+  function printList(): void {
+    console.log('');
+    console.log('  \x1b[90mSee trending: https://openrouter.ai/rankings/programming\x1b[0m');
+    console.log('');
+    for (let i = 0; i < topModels.length; i++) {
+      const check = selected.has(i) ? '\x1b[32m✓\x1b[0m' : ' ';
+      const num = String(i + 1).padStart(2, ' ');
+      console.log(`  ${check} ${num}. ${topModels[i].label}`);
+    }
+    for (const e of extras) {
+      console.log(`  \x1b[32m✓\x1b[0m  +  ${e.label}`);
+    }
+    const count = selected.size + extras.length;
+    const names = [...selected].map(i => topModels[i].label).concat(extras.map(e => e.label));
+    console.log('');
+    console.log(`  \x1b[90mSelected: ${names.join(', ')} (${count} model${count !== 1 ? 's' : ''})\x1b[0m`);
+    console.log('  \x1b[90m1-${topModels.length} toggle · model/id add · Enter save · reset defaults\x1b[0m'.replace('${topModels.length}', String(topModels.length)));
+    console.log('');
+  }
 
-  const input = answer.trim();
+  printList();
 
-  // Collect any pasted model IDs (contain '/')
-  const pastedIds: ModelEntry[] = [];
-  const toggleNums: number[] = [];
+  // Interactive loop
+  while (true) {
+    const answer = await promptQ(rl, '  > ');
+    const input = answer.trim();
 
-  if (input) {
+    if (input === '' || input === 'done') {
+      // Save and exit
+      if (selected.size + extras.length === 0) {
+        console.log('  \x1b[33mNeed at least 1 model\x1b[0m');
+        continue;
+      }
+      break;
+    }
+
+    if (input === 'reset') {
+      selected.clear();
+      selected.add(0);
+      selected.add(1);
+      selected.add(2);
+      extras.length = 0;
+      printList();
+      continue;
+    }
+
+    // Process each token (supports "4 5 7" in one line)
+    let changed = false;
     for (const token of input.split(/\s+/)) {
       if (token.includes('/')) {
-        // Looks like a model ID
+        // Model ID
         const entry = await lookupModel(apiKey, token);
         if (entry) {
-          pastedIds.push(entry);
-          console.log(`  ✓ Added ${entry.label}`);
+          if (!extras.some(e => e.id === entry.id)) {
+            extras.push(entry);
+            console.log(`  \x1b[32m✓\x1b[0m Added ${entry.label}`);
+          } else {
+            console.log(`  Already added: ${entry.label}`);
+          }
+          changed = true;
         } else {
-          console.log(`  ✗ Unknown: ${token}`);
+          console.log(`  \x1b[31m✗\x1b[0m Unknown model: ${token}`);
         }
       } else {
         const n = parseInt(token, 10);
-        if (n >= 1 && n <= topModels.length) toggleNums.push(n);
+        if (n >= 1 && n <= topModels.length) {
+          const idx = n - 1;
+          if (selected.has(idx)) {
+            if (selected.size + extras.length <= 1) {
+              console.log('  \x1b[33mNeed at least 1 model\x1b[0m');
+            } else {
+              selected.delete(idx);
+              changed = true;
+            }
+          } else {
+            selected.add(idx);
+            changed = true;
+          }
+        }
       }
     }
-  }
 
-  // If user typed numbers, use exactly those (not toggle, just select)
-  let finalSelection: ModelEntry[];
-  if (toggleNums.length > 0) {
-    finalSelection = toggleNums.map((n) => topModels[n - 1]);
-  } else if (pastedIds.length > 0) {
-    // Keep defaults + add pasted
-    finalSelection = [...selected].map((i) => topModels[i]);
-  } else {
-    // Enter with no input → use defaults
-    finalSelection = [...selected].map((i) => topModels[i]);
-  }
-
-  // Merge pasted IDs
-  for (const p of pastedIds) {
-    if (!finalSelection.some((m) => m.id === p.id)) {
-      finalSelection.push(p);
+    if (changed) {
+      printList();
     }
   }
+
+  rl.close();
+
+  // Build final selection
+  const finalSelection: ModelEntry[] = [
+    ...[...selected].map(i => topModels[i]),
+    ...extras,
+  ];
 
   // Preserve existing config fields (like auto_review)
   const existing = loadConfig(configPath);
   existing.openrouter_models = finalSelection;
   saveConfig(configPath, existing);
 
-  console.log(`  ✓ ${finalSelection.map((m) => m.label).join(', ')}`);
+  console.log(`  \x1b[32m✓\x1b[0m ${finalSelection.map(m => m.label).join(', ')}`);
 }
 
 // ── Main ────────────────────────────────────────────────────────────
