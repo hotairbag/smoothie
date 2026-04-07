@@ -70,13 +70,19 @@ BLEND_RESULTS=$(echo "$REVIEW_PROMPT" | node "$SCRIPT_DIR/dist/blend-cli.js" 2>/
 # Generate share link (metadata only, no raw content)
 SHARE_URL=""
 SHARE_PARAMS=$(echo "$BLEND_RESULTS" | node -e "
+  const fs=require('fs');
   let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
     try {
       const r=JSON.parse(d);
       const models=r.results.map(m=>m.model).join(',');
       const times=r.results.map(m=>m.elapsed_s||0).join(',');
       const tokens=r.results.map(m=>(m.tokens&&m.tokens.total)||0).join(',');
-      console.log('models='+encodeURIComponent(models)+'&times='+encodeURIComponent(times)+'&tokens='+encodeURIComponent(tokens)+'&type=plan');
+      const responded=r.results.filter(m=>!m.response.startsWith('Error:')&&m.response!=='No response content'&&m.response!=='(empty response)').length;
+      let github='',judge='Claude Code';
+      try{const c=JSON.parse(fs.readFileSync('$SCRIPT_DIR/config.json','utf8'));github=c.github||'';const p=process.env.SMOOTHIE_PLATFORM||'claude';judge={claude:'Claude Code',gemini:'Gemini CLI',codex:'Codex CLI',cursor:'Cursor'}[p]||'Claude Code';}catch{}
+      let params='models='+encodeURIComponent(models)+'&times='+encodeURIComponent(times)+'&tokens='+encodeURIComponent(tokens)+'&type=pr&suggestions='+responded+'&judge='+encodeURIComponent(judge);
+      if(github)params+='&user='+encodeURIComponent(github);
+      console.log(params);
     } catch { console.log(''); }
   });
 " 2>/dev/null)
