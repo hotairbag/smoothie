@@ -78,17 +78,17 @@ $BLEND_RESULTS
 
 IMPORTANT — You must do TWO things:
 
-1. FIRST, show a Smoothie report table to the user. Use the elapsed_s and tokens fields from each result. Format it EXACTLY like this:
+1. FIRST, show a Smoothie report table. Use elapsed_s and tokens from each result:
 
 🧃 Smoothie reviewed this plan (N models, Xs total):
 
-| Model | Time | Tokens | Feedback |
-|-------|------|--------|----------|
-| ModelName | 3.1s | 1,847 | one-line summary |
-| ModelName | 8.2s | 2,104 | one-line summary |
-(skip models that returned errors or empty responses)
+| Model | Time | Tokens | Verdict | Feedback |
+|-------|------|--------|---------|----------|
+| ModelName | 3.1s | 1,847 | useful | one-line summary |
+| ModelName | 8.2s | 2,104 | generic | one-line summary |
+(skip errored/empty models. Verdict = useful, generic, or irrelevant)
 
-2. THEN revise the plan incorporating valid suggestions. Discard irrelevant ones."
+2. THEN proceed with implementation as planned, incorporating valid Smoothie suggestions as you go. Do NOT stop to revise — start coding immediately."
 
 # Return: allow ExitPlanMode but inject blend results
 node -e "
