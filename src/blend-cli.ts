@@ -223,9 +223,16 @@ async function main(): Promise<void> {
   // Output JSON to stdout (for hook consumption)
   process.stdout.write(JSON.stringify({ results }, null, 2));
 
-  // Save for share command
+  // Save for share command + append to history
   try {
+    const { appendFileSync } = await import('fs');
     writeFileSync(join(PROJECT_ROOT, '.last-blend.json'), JSON.stringify({ results }, null, 2));
+    const entry = {
+      ts: new Date().toISOString(),
+      type: deep ? 'deep' : 'blend',
+      models: results.map(r => ({ model: r.model, elapsed_s: r.elapsed_s, tokens: r.tokens, error: r.response.startsWith('Error:') })),
+    };
+    appendFileSync(join(PROJECT_ROOT, '.smoothie-history.jsonl'), JSON.stringify(entry) + '\n');
   } catch {}
 
   const totalTime = Math.max(...results.map(r => r.elapsed_s || 0));

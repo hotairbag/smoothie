@@ -291,10 +291,16 @@ server.tool(
     const judgeName = judgeNames[platform] || 'the judge';
     process.stderr.write(`\n  \u25C6  All done. Handing to ${judgeName}...\n\n`);
 
-    // Save for share command
+    // Save for share command + append to history
     try {
-      const { writeFileSync } = await import('fs');
+      const { writeFileSync, appendFileSync } = await import('fs');
       writeFileSync(join(PROJECT_ROOT, '.last-blend.json'), JSON.stringify({ results }, null, 2));
+      const entry = {
+        ts: new Date().toISOString(),
+        type: deep ? 'deep' : 'blend',
+        models: results.map(r => ({ model: r.model, elapsed_s: r.elapsed_s, tokens: r.tokens, error: r.response.startsWith('Error:') })),
+      };
+      appendFileSync(join(PROJECT_ROOT, '.smoothie-history.jsonl'), JSON.stringify(entry) + '\n');
     } catch {}
 
     return {

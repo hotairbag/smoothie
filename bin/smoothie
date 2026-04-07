@@ -43,6 +43,63 @@ case "$1" in
         ;;
     esac
     ;;
+  stats)
+    HISTORY="$SCRIPT_DIR/.smoothie-history.jsonl"
+    if [ ! -f "$HISTORY" ]; then
+      echo "  No history yet. Run a blend first."
+      exit 0
+    fi
+    node -e "
+      const fs = require('fs');
+      const lines = fs.readFileSync('$HISTORY', 'utf8').trim().split('\n').map(l => JSON.parse(l));
+
+      const totalBlends = lines.length;
+      const totalTokens = lines.reduce((s, e) => s + e.models.reduce((s2, m) => s2 + (m.tokens?.total || 0), 0), 0);
+      const totalTime = lines.reduce((s, e) => s + Math.max(...e.models.map(m => m.elapsed_s || 0)), 0);
+      const errors = lines.reduce((s, e) => s + e.models.filter(m => m.error).length, 0);
+      const successes = lines.reduce((s, e) => s + e.models.filter(m => !m.error).length, 0);
+
+      // Model usage counts
+      const modelStats = {};
+      for (const entry of lines) {
+        for (const m of entry.models) {
+          if (!modelStats[m.model]) modelStats[m.model] = { calls: 0, tokens: 0, errors: 0, totalTime: 0 };
+          modelStats[m.model].calls++;
+          modelStats[m.model].tokens += m.tokens?.total || 0;
+          modelStats[m.model].totalTime += m.elapsed_s || 0;
+          if (m.error) modelStats[m.model].errors++;
+        }
+      }
+
+      // Sort by calls
+      const sorted = Object.entries(modelStats).sort((a, b) => b[1].calls - a[1].calls);
+
+      console.log('');
+      console.log('  🧃 Smoothie Stats');
+      console.log('  ─────────────────────────────────────────');
+      console.log('  Blends: ' + totalBlends + '  Tokens: ' + totalTokens.toLocaleString() + '  Time: ' + totalTime.toFixed(0) + 's');
+      console.log('  Success rate: ' + successes + '/' + (successes + errors) + ' (' + (successes / (successes + errors) * 100).toFixed(0) + '%)');
+      console.log('');
+      console.log('  Model                        Calls  Tokens     Avg time  Errors');
+      console.log('  ─────────────────────────────────────────────────────────────────');
+      for (const [name, s] of sorted) {
+        const avg = (s.totalTime / s.calls).toFixed(1);
+        console.log('  ' + name.padEnd(30) + String(s.calls).padStart(5) + String(s.tokens.toLocaleString()).padStart(8) + (avg + 's').padStart(10) + String(s.errors).padStart(8));
+      }
+      console.log('');
+
+      // Recent blends
+      const recent = lines.slice(-5).reverse();
+      console.log('  Recent blends:');
+      for (const e of recent) {
+        const models = e.models.filter(m => !m.error).map(m => m.model).join(', ');
+        const time = Math.max(...e.models.map(m => m.elapsed_s || 0)).toFixed(1);
+        const date = new Date(e.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        console.log('    ' + date + '  ' + e.type.padEnd(6) + time + 's  ' + models);
+      }
+      console.log('');
+    "
+    ;;
   share)
     shift
     # Build URL from last blend results if available
@@ -78,6 +135,7 @@ case "$1" in
     echo "  smoothie blend \"<prompt>\"         Run a blend from terminal"
     echo "  smoothie blend --deep \"<prompt>\"  Deep blend with full context"
     echo ""
+    echo "  smoothie stats               Usage stats and history"
     echo "  smoothie share               Share last blend report"
     echo ""
     ;;
