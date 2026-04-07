@@ -78,12 +78,15 @@ $BLEND_RESULTS
 
 IMPORTANT — You must do TWO things:
 
-1. FIRST, show a brief Smoothie summary to the user so they know the blend ran. Format it like:
+1. FIRST, show a Smoothie report table to the user. Use the elapsed_s and tokens fields from each result. Format it EXACTLY like this:
 
-🧃 Smoothie reviewed this plan (N models):
-  ModelName — one-line summary of their key feedback
-  ModelName — one-line summary of their key feedback
-  (skip models that returned errors or empty responses)
+🧃 Smoothie reviewed this plan (N models, Xs total):
+
+| Model | Time | Tokens | Feedback |
+|-------|------|--------|----------|
+| ModelName | 3.1s | 1,847 | one-line summary |
+| ModelName | 8.2s | 2,104 | one-line summary |
+(skip models that returned errors or empty responses)
 
 2. THEN revise the plan incorporating valid suggestions. Discard irrelevant ones."
 

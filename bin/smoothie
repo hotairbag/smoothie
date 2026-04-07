@@ -43,6 +43,25 @@ case "$1" in
         ;;
     esac
     ;;
+  share)
+    shift
+    # Build URL from last blend results if available
+    if [ -f "$SCRIPT_DIR/.last-blend.json" ]; then
+      SHARE_URL=$(node -e "
+        const r = JSON.parse(require('fs').readFileSync('$SCRIPT_DIR/.last-blend.json','utf8'));
+        const models = r.results.map(m => m.model).join(',');
+        const times = r.results.map(m => m.elapsed_s || 0).join(',');
+        const tokens = r.results.map(m => m.tokens?.total || 0).join(',');
+        const url = 'https://hotairbag.github.io/smoothie/report.html?models=' + encodeURIComponent(models) + '&times=' + encodeURIComponent(times) + '&tokens=' + encodeURIComponent(tokens) + '&type=plan&suggestions=0';
+        console.log(url);
+      ")
+      echo "  $SHARE_URL"
+      echo ""
+      echo "  Open in browser or copy to share"
+    else
+      echo "  No recent blend found. Run a blend first."
+    fi
+    ;;
   help|--help|-h|"")
     echo ""
     echo "  🧃 Smoothie — multi-model review for Claude Code"
@@ -58,6 +77,8 @@ case "$1" in
     echo ""
     echo "  smoothie blend \"<prompt>\"         Run a blend from terminal"
     echo "  smoothie blend --deep \"<prompt>\"  Deep blend with full context"
+    echo ""
+    echo "  smoothie share               Share last blend report"
     echo ""
     ;;
   *)

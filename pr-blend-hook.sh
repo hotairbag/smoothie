@@ -79,12 +79,14 @@ $BLEND_RESULTS
 
 IMPORTANT — You must do TWO things:
 
-1. FIRST, show a brief Smoothie summary so the user knows the review ran:
+1. FIRST, show a Smoothie report table. Use elapsed_s and tokens from each result:
 
-🧃 Smoothie reviewed this PR (N models):
-  ModelName — one-line key finding
-  ModelName — one-line key finding
-  (skip models that errored or returned empty)
+🧃 Smoothie reviewed this PR (N models, Xs total):
+
+| Model | Time | Tokens | Finding |
+|-------|------|--------|---------|
+| ModelName | 3.1s | 1,847 | one-line key finding |
+(skip errored/empty models)
 
 2. THEN address any valid issues — fix the code or note them in the PR description."
 

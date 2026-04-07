@@ -27,6 +27,8 @@ interface Config {
 interface ModelResult {
   model: string;
   response: string;
+  elapsed_s?: number;
+  tokens?: { prompt: number; completion: number; total: number };
 }
 
 interface ModelEntry {
@@ -45,6 +47,7 @@ interface OpenRouterChoice {
 
 interface OpenRouterResponse {
   choices?: OpenRouterChoice[];
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -120,7 +123,12 @@ async function queryOpenRouter(
 
     const data = (await res.json()) as OpenRouterResponse;
     const text = data.choices?.[0]?.message?.content ?? 'No response content';
-    return { model: modelLabel, response: text };
+    const usage = data.usage;
+    return {
+      model: modelLabel,
+      response: text,
+      tokens: usage ? { prompt: usage.prompt_tokens || 0, completion: usage.completion_tokens || 0, total: usage.total_tokens || 0 } : undefined,
+    };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return { model: modelLabel, response: `Error: ${message}` };
@@ -262,19 +270,19 @@ server.tool(
       startTimes[label] = Date.now();
       return fn()
         .then((result: ModelResult) => {
-          const elapsed = ((Date.now() - startTimes[label]) / 1000).toFixed(1);
+          const elapsed = ((Date.now() - startTimes[label]) / 1000);
           process.stderr.write(
-            `  \u2713  ${label.padEnd(26)} done (${elapsed}s)\n`,
+            `  \u2713  ${label.padEnd(26)} done (${elapsed.toFixed(1)}s)\n`,
           );
-          return result;
+          return { ...result, elapsed_s: parseFloat(elapsed.toFixed(1)) };
         })
         .catch((err: unknown) => {
-          const elapsed = ((Date.now() - startTimes[label]) / 1000).toFixed(1);
+          const elapsed = ((Date.now() - startTimes[label]) / 1000);
           const message = err instanceof Error ? err.message : String(err);
           process.stderr.write(
-            `  \u2717  ${label.padEnd(26)} failed (${elapsed}s)\n`,
+            `  \u2717  ${label.padEnd(26)} failed (${elapsed.toFixed(1)}s)\n`,
           );
-          return { model: label, response: `Error: ${message}` } as ModelResult;
+          return { model: label, response: `Error: ${message}`, elapsed_s: parseFloat(elapsed.toFixed(1)) } as ModelResult;
         });
     });
 

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smoothie Report</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <!-- OG tags will be static since we can't do server-side rendering on GitHub Pages -->
+  <meta property="og:title" content="Smoothie — AI Plan Review">
+  <meta property="og:description" content="Multi-model code review in one command">
+  <meta property="og:image" content="https://hotairbag.github.io/smoothie/favicon.png">
+  <meta name="twitter:card" content="summary">
+  <style>
+    /* Dark theme matching landing page */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0d1117; color: #f0f6fc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+    .card { max-width: 500px; width: 100%; margin: 24px; background: #161b22; border: 1px solid #30363d; border-radius: 16px; padding: 32px; }
+    .header { text-align: center; margin-bottom: 24px; }
+    .header h1 { font-size: 20px; font-weight: 600; }
+    .header .type { color: #8b949e; font-size: 13px; margin-top: 4px; }
+    .stats { display: flex; justify-content: center; gap: 24px; margin-bottom: 24px; padding: 16px; background: #0d1117; border-radius: 10px; }
+    .stat { text-align: center; }
+    .stat .num { font-size: 22px; font-weight: 700; color: #f78166; }
+    .stat .label { font-size: 11px; color: #8b949e; margin-top: 2px; }
+    .models { margin-bottom: 24px; }
+    .model-row { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #21262d; }
+    .model-row:last-child { border-bottom: none; }
+    .model-name { flex: 1; font-size: 14px; }
+    .model-time { font-family: 'SF Mono', monospace; font-size: 12px; color: #8b949e; width: 50px; text-align: right; }
+    .model-tokens { font-family: 'SF Mono', monospace; font-size: 12px; color: #8b949e; width: 70px; text-align: right; }
+    .model-bar { width: 60px; height: 6px; background: #21262d; border-radius: 3px; margin-left: 12px; overflow: hidden; }
+    .model-bar-fill { height: 100%; background: #3fb950; border-radius: 3px; }
+    .actions { text-align: center; }
+    .share-btn { background: #21262d; border: 1px solid #30363d; border-radius: 8px; padding: 10px 20px; color: #f0f6fc; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+    .share-btn:hover { background: #30363d; border-color: #484f58; }
+    .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #484f58; }
+    .footer a { color: #8b949e; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="header">
+      <h1>🧃 Smoothie <span id="review-type">Plan</span> Review</h1>
+      <div class="type">multi-model code review</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="num" id="model-count">0</div><div class="label">models</div></div>
+      <div class="stat"><div class="num" id="total-time">0s</div><div class="label">total</div></div>
+      <div class="stat"><div class="num" id="suggestion-count">0</div><div class="label">suggestions</div></div>
+    </div>
+    <div class="models" id="model-list"></div>
+    <div class="actions">
+      <button class="share-btn" onclick="copyTweet()">📋 Copy tweet</button>
+    </div>
+    <div class="footer">
+      <a href="https://hotairbag.github.io/smoothie">smoothie-code</a> · multi-model review for Claude Code
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const models = (params.get('models') || '').split(',').filter(Boolean);
+    const times = (params.get('times') || '').split(',').map(Number);
+    const tokens = (params.get('tokens') || '').split(',').map(Number);
+    const suggestions = parseInt(params.get('suggestions') || '0');
+    const type = params.get('type') || 'Plan';
+    const maxTime = Math.max(...times, 1);
+
+    document.getElementById('review-type').textContent = type;
+    document.getElementById('model-count').textContent = models.length;
+    document.getElementById('total-time').textContent = Math.max(...times, 0).toFixed(1) + 's';
+    document.getElementById('suggestion-count').textContent = suggestions;
+
+    const list = document.getElementById('model-list');
+    models.forEach((name, i) => {
+      const pct = ((times[i] || 0) / maxTime * 100).toFixed(0);
+      const row = document.createElement('div');
+      row.className = 'model-row';
+      row.innerHTML = `
+        <span class="model-name">${name}</span>
+        <span class="model-time">${(times[i] || 0).toFixed(1)}s</span>
+        <span class="model-tokens">${(tokens[i] || 0).toLocaleString()} tok</span>
+        <div class="model-bar"><div class="model-bar-fill" style="width: ${pct}%"></div></div>
+      `;
+      list.appendChild(row);
+    });
+
+    function copyTweet() {
+      const text = `🧃 Just used Smoothie to review my ${type.toLowerCase()} across ${models.length} AI models in ${Math.max(...times).toFixed(1)}s. ${suggestions} suggestions incorporated automatically.\n\nhttps://hotairbag.github.io/smoothie`;
+      navigator.clipboard.writeText(text);
+      const btn = document.querySelector('.share-btn');
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => btn.textContent = '📋 Copy tweet', 2000);
+    }
+  </script>
+</body>
+</html>

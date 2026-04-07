@@ -11,7 +11,7 @@
  * Progress goes to stderr so it doesn't interfere with hook JSON output.
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { execFile as execFileCb } from 'child_process';
@@ -34,10 +34,13 @@ interface Config {
 interface ModelResult {
   model: string;
   response: string;
+  elapsed_s?: number;
+  tokens?: { prompt: number; completion: number; total: number };
 }
 
 interface OpenRouterResponse {
   choices?: Array<{ message: { content: string } }>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -106,7 +109,12 @@ async function queryOpenRouter(
     clearTimeout(timer);
     const data = (await res.json()) as OpenRouterResponse;
     const text = data.choices?.[0]?.message?.content ?? 'No response content';
-    return { model: modelLabel, response: text };
+    const usage = data.usage;
+    return {
+      model: modelLabel,
+      response: text,
+      tokens: usage ? { prompt: usage.prompt_tokens || 0, completion: usage.completion_tokens || 0, total: usage.total_tokens || 0 } : undefined,
+    };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return { model: modelLabel, response: `Error: ${message}` };
@@ -196,16 +204,16 @@ async function main(): Promise<void> {
   const promises = models.map(({ fn, label }) => {
     startTimes[label] = Date.now();
     return fn()
-      .then((result) => {
-        const elapsed = ((Date.now() - startTimes[label]) / 1000).toFixed(1);
-        process.stderr.write(`  ✓  ${label.padEnd(26)} done (${elapsed}s)\n`);
-        return result;
+      .then((result: ModelResult) => {
+        const elapsed = ((Date.now() - startTimes[label]) / 1000);
+        process.stderr.write(`  ✓  ${label.padEnd(26)} done (${elapsed.toFixed(1)}s)\n`);
+        return { ...result, elapsed_s: parseFloat(elapsed.toFixed(1)) };
       })
       .catch((err: unknown) => {
-        const elapsed = ((Date.now() - startTimes[label]) / 1000).toFixed(1);
+        const elapsed = ((Date.now() - startTimes[label]) / 1000);
         const message = err instanceof Error ? err.message : String(err);
-        process.stderr.write(`  ✗  ${label.padEnd(26)} failed (${elapsed}s)\n`);
-        return { model: label, response: `Error: ${message}` };
+        process.stderr.write(`  ✗  ${label.padEnd(26)} failed (${elapsed.toFixed(1)}s)\n`);
+        return { model: label, response: `Error: ${message}`, elapsed_s: parseFloat(elapsed.toFixed(1)) } as ModelResult;
       });
   });
 
@@ -214,6 +222,16 @@ async function main(): Promise<void> {
 
   // Output JSON to stdout (for hook consumption)
   process.stdout.write(JSON.stringify({ results }, null, 2));
+
+  // Save for share command
+  try {
+    writeFileSync(join(PROJECT_ROOT, '.last-blend.json'), JSON.stringify({ results }, null, 2));
+  } catch {}
+
+  const totalTime = Math.max(...results.map(r => r.elapsed_s || 0));
+  const totalTokens = results.reduce((sum, r) => sum + (r.tokens?.total || 0), 0);
+  const responded = results.filter(r => !r.response.startsWith('Error:')).length;
+  process.stderr.write(`  ${responded}/${results.length} models · ${totalTime.toFixed(1)}s · ${totalTokens} tokens\n\n`);
 }
 
 main();
